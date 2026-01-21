@@ -1,0 +1,48 @@
+export type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
+
+export type ItemType = 'STORY' | 'AD' | 'CLASSIFIED';
+
+export type ItemSubtype = 'TENDER' | 'JOB' | 'AUCTION' | 'NOTICE' | 'PROPERTY' | 'OTHER';
+
+export interface Edition {
+  id: number;
+  newspaper_name: string;
+  edition_date: string;
+  file_hash: string;
+  num_pages: number;
+  status: EditionStatus;
+  error_message?: string;
+  created_at: string;
+  processed_at?: string;
+}
+
+export interface Item {
+  id: number;
+  edition_id: number;
+  page_id?: number;
+  page_number: number;
+  item_type: ItemType;
+  subtype?: ItemSubtype;
+  title?: string;
+  text?: string;
+  bbox_json?: any;
+  extracted_entities_json?: any;
+  created_at: string;
+}
+
+export interface Page {
+  id: number;
+  edition_id: number;
+  page_number: number;
+  image_path?: string;
+  extracted_text?: string;
+  created_at: string;
+}
+
+export interface SearchResult {
+  item_id: number;
+  title?: string;
+  page_number: number;
+  snippet: string;
+  highlights: string[];
+}
