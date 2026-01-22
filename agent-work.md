@@ -1,5 +1,35 @@
 # Newspaper PDF Intelligence - Project Plan
 
+## Agent Behavior Instructions
+
+### Primary Directives
+1. **Always read this file first** at the start of any session to understand current state
+2. **Update completion logs** immediately after finishing any task or subtask
+3. **Track time spent** on each task for better estimation
+4. **Run verification tests** before marking tasks complete
+5. **Document blockers** and unknowns clearly for future sessions
+6. **Maintain consistency** in file naming, code style, and documentation
+
+### Session Start Protocol
+1. Read this entire file to understand current state
+2. Check recent completion logs below
+3. Update session start time
+4. Identify next logical task based on dependencies
+5. Update todo list before starting work
+
+### Task Completion Protocol
+- Mark status as DONE only after verification
+- Add completion timestamp
+- Log test results and any issues
+- Note files modified
+- Update any dependent tasks
+
+### Error Handling
+- Log errors with timestamps and context
+- Document attempted solutions
+- Mark tasks as BLOCKED if necessary
+- Always provide next steps
+
 ## Project Goal
 
 Build a web application that transforms newspaper PDFs into searchable, structured intelligence. Users upload newspaper editions, and the system extracts articles, advertisements, and classifieds using OCR and layout analysis. The platform makes historical newspapers searchable and exportable, focusing on reliability and accuracy over complex ML models.
@@ -31,13 +61,21 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 **DoD:** Directory structure created, gitignore in place  
 **Files touched:** `/`, `.gitignore`, `storage/.gitkeep`  
 **Verification:** Project structure exists
+**Completed:** 2026-01-22 (estimated - original setup)
+**Time Spent:** ~30 minutes (estimated)
+**Test Results:** Directory creation successful, gitignore working
+**Notes:** Ready for backend development
 
 ### 2. Backend Foundation
 **Status:** IN_PROGRESS  
 **DoD:** FastAPI app with basic structure, dependencies configured  
 **Files touched:** `backend/requirements.txt`, `backend/app/main.py`, `backend/app/settings.py`  
 **Verification:** `uvicorn app.main:app --reload` starts successfully  
-**Risk/Unknowns:** None  
+**Risk/Unknowns:** None
+**Started:** 2026-01-22
+**Time Spent:** TBD
+**Progress:** Basic structure exists, needs testing and verification
+**Next Steps:** Test uvicorn startup, verify dependencies  
 
 #### 2.1 Database Models
 **Status:** TODO  
@@ -153,6 +191,37 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 5. **Frontend**: React with TypeScript - good balance of development speed and type safety
 6. **PDF Processing**: PyMuPDF over alternatives - mature, good Python support, reasonable licensing
 
+## Agent Session Logs
+
+### Current Session
+**Start Time:** 2026-01-22
+**End Time:** 2026-01-22
+**Focus:** Updating agent-work.md with comprehensive tracking
+**Duration:** ~15 minutes
+**Tasks Completed:**
+- Enhanced agent-work.md with behavior instructions and protocols
+- Added comprehensive session logging framework
+- Created task update template for future consistency
+- Added time tracking and test result sections
+
+### Previous Sessions
+*No previous sessions logged - this is the first iteration*
+
+### Recent Completions
+- **2026-01-22:** Enhanced agent-work.md with behavior instructions and tracking framework
+
+### Test Results History
+*No test results yet - project in early setup phase*
+
+### Blocked Tasks & Issues
+*No blocked tasks yet*
+
+### Time Tracking Summary
+- **Total Project Time:** TBD
+- **Backend Infrastructure:** TBD
+- **Frontend Development:** TBD
+- **Testing & QA:** TBD
+
 ## Known Issues / Bugs
 
 - None yet - project is just starting
@@ -235,3 +304,46 @@ LOG_LEVEL=INFO
 - SQL injection prevention via SQLAlchemy ORM
 - Basic CORS configuration for development
 - Input sanitization for search queries
+
+---
+
+## Task Update Template (For Future Reference)
+
+When updating any task status, use this format:
+
+```markdown
+### [Task Number]. [Task Name] [Status Emoji]
+**Status:** [DONE/IN_PROGRESS/BLOCKED/TODO]
+**DoD:** [Clear acceptance criteria]
+**Files touched:** [List of files modified]
+**Verification:** [How to verify completion]
+**Risk/Unknowns:** [Any uncertainties]
+**Started:** [YYYY-MM-DD]
+**Completed:** [YYYY-MM-DD] (if done)
+**Time Spent:** [Duration]
+**Test Results:** [Summary of tests run]
+**Notes:** [Additional context, blockers, next steps]
+```
+
+## Quick Reference for Agents
+
+### Status Emojis
+- ✅ DONE
+- 🔄 IN_PROGRESS  
+- 🚫 BLOCKED
+- 📋 TODO
+
+### Priority Levels
+- HIGH: Blocking other work
+- MEDIUM: Important but not blocking
+- LOW: Nice to have
+
+### Session Checklist
+- [ ] Read current state
+- [ ] Update session start time
+- [ ] Review blockers from previous session
+- [ ] Update todo list
+- [ ] Work on highest priority task
+- [ ] Log completion with timestamp
+- [ ] Run verification tests
+- [ ] Update time tracking

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi } from '../services/api';
-import { Edition, Item, ItemType } from '../types';
+import { Item, ItemType } from '../types';
 
 const EditionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
