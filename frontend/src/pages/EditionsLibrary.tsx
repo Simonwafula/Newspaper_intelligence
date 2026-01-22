@@ -27,8 +27,12 @@ const EditionsLibrary: React.FC = () => {
       setEditionDate('');
       alert('Edition uploaded successfully! Processing will begin shortly.');
     },
-    onError: (error: any) => {
-      alert(`Upload failed: ${error.response?.data?.detail || error.message}`);
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Type assertion for axios error structure
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const responseDetail = axiosError.response?.data?.detail;
+      alert(`Upload failed: ${responseDetail || errorMessage}`);
     },
   });
 

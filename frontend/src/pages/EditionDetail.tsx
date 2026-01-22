@@ -32,8 +32,12 @@ const EditionDetail: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['edition', editionId] });
       alert('Processing started successfully!');
     },
-    onError: (error: any) => {
-      alert(`Processing failed: ${error.response?.data?.detail || error.message}`);
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Type assertion for axios error structure
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const responseDetail = axiosError.response?.data?.detail;
+      alert(`Processing failed: ${responseDetail || errorMessage}`);
     },
   });
 

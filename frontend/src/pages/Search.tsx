@@ -20,7 +20,7 @@ const Search: React.FC = () => {
     queryFn: () => {
       if (!query.trim()) return [];
       
-      const searchFilters: any = {};
+      const searchFilters: Record<string, string | number> = {};
       if (filters.item_type) searchFilters.item_type = filters.item_type;
       if (filters.subtype) searchFilters.subtype = filters.subtype;
       

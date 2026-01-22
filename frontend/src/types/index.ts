@@ -25,8 +25,8 @@ export interface Item {
   subtype?: ItemSubtype;
   title?: string;
   text?: string;
-  bbox_json?: any;
-  extracted_entities_json?: any;
+  bbox_json?: Record<string, unknown>;
+  extracted_entities_json?: Record<string, unknown>;
   created_at: string;
 }
 
