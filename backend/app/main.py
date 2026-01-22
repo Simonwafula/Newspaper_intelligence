@@ -35,12 +35,13 @@ async def health_check():
     return {"status": "healthy"}
 
 # Import routes
-from app.api import editions, processing, items, search
+from app.api import editions, processing, items, search, export
 
 app.include_router(editions.router, prefix="/api/editions", tags=["editions"])
 app.include_router(processing.router, prefix="/api/editions", tags=["processing"])
 app.include_router(items.router, prefix="/api/items", tags=["items"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
 
 
 if __name__ == "__main__":
