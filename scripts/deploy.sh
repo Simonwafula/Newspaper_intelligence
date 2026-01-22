@@ -253,7 +253,7 @@ main() {
     log "Starting Newspaper Intelligence deployment..."
     log "Deploying to: $PROJECT_ROOT"
     
-    check_user
+    #check_user
     create_directories
     update_code
     setup_venv
