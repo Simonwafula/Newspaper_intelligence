@@ -6,6 +6,7 @@ import EditionDetail from './pages/EditionDetail';
 import Search from './pages/Search';
 import GlobalSearch from './pages/GlobalSearch';
 import SavedSearches from './pages/SavedSearches';
+import Admin from './pages/Admin';
 import ErrorPage from './pages/ErrorPage';
 import './App.css';
 
@@ -40,6 +41,7 @@ function App() {
               <Route path="/search" element={<Search />} />
               <Route path="/global-search" element={<GlobalSearch />} />
               <Route path="/saved-searches" element={<SavedSearches />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<ErrorPage />} />
             </Routes>
           </main>

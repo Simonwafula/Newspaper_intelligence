@@ -4,11 +4,16 @@ import { Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSear
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
 const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
+const getAuthHeaders = () => {
+  const storedToken = localStorage.getItem('adminToken');
+  const token = storedToken || ADMIN_TOKEN;
+  return token ? { 'X-Admin-Token': token } : {};
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    ...(ADMIN_TOKEN && { 'X-Admin-Token': ADMIN_TOKEN }),
   },
 });
 
@@ -35,6 +40,7 @@ export const editionsApi = {
     const response = await api.post('/api/editions/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...getAuthHeaders(),
       },
     });
     return response.data;
@@ -42,13 +48,17 @@ export const editionsApi = {
 
   // Reprocess edition
   reprocessEdition: async (id: number): Promise<Edition> => {
-    const response = await api.post(`/api/editions/${id}/reprocess`);
+    const response = await api.post(`/api/editions/${id}/reprocess`, {}, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 
   // Process edition (trigger processing)
   processEdition: async (id: number): Promise<Edition> => {
-    const response = await api.post(`/api/editions/${id}/process`);
+    const response = await api.post(`/api/editions/${id}/process`, {}, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 
@@ -168,30 +178,40 @@ export const savedSearchesApi = {
 
   // Create saved search
   createSavedSearch: async (search: SavedSearchCreate): Promise<SavedSearch> => {
-    const response = await api.post('/api/saved-searches', search);
+    const response = await api.post('/api/saved-searches', search, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 
   // Update saved search
   updateSavedSearch: async (id: number, search: SavedSearchCreate): Promise<SavedSearch> => {
-    const response = await api.put(`/api/saved-searches/${id}`, search);
+    const response = await api.put(`/api/saved-searches/${id}`, search, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 
   // Delete saved search
   deleteSavedSearch: async (id: number): Promise<void> => {
-    await api.delete(`/api/saved-searches/${id}`);
+    await api.delete(`/api/saved-searches/${id}`, {
+      headers: getAuthHeaders(),
+    });
   },
 
   // Update search matches
   updateSearchMatches: async (id: number): Promise<SavedSearch> => {
-    const response = await api.post(`/api/saved-searches/${id}/update-matches`);
+    const response = await api.post(`/api/saved-searches/${id}/update-matches`, {}, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 
   // Update all search matches
   updateAllSearchMatches: async (): Promise<{ message: string; updated: number; failed: number }> => {
-    const response = await api.post('/api/saved-searches/update-all-matches');
+    const response = await api.post('/api/saved-searches/update-all-matches', {}, {
+      headers: getAuthHeaders(),
+    });
     return response.data;
   },
 };

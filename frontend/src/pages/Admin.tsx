@@ -1,27 +1,36 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi } from '../services/api';
-import { Edition } from '../types';
 
-const EditionsLibrary: React.FC = () => {
+const Admin: React.FC = () => {
+  const [token, setToken] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [newspaperName, setNewspaperName] = useState('');
   const [editionDate, setEditionDate] = useState('');
-
+  const [error, setError] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: editions, isLoading, error } = useQuery({
-    queryKey: ['editions'],
-    queryFn: () => editionsApi.getEditions(),
-  });
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (token.trim()) {
+      localStorage.setItem('adminToken', token.trim());
+      setIsAuthenticated(true);
+      setError('');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('adminToken');
+    setIsAuthenticated(false);
+    setToken('');
+  };
 
   const uploadMutation = useMutation({
     mutationFn: (data: { file: File; newspaperName: string; editionDate: string }) =>
       editionsApi.uploadEdition(data.file, data.newspaperName, data.editionDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['editions'] });
-      // Reset form
       setFile(null);
       setNewspaperName('');
       setEditionDate('');
@@ -29,10 +38,9 @@ const EditionsLibrary: React.FC = () => {
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      // Type assertion for axios error structure
       const axiosError = error as { response?: { data?: { detail?: string } } };
       const responseDetail = axiosError.response?.data?.detail;
-      alert(`Upload failed: ${responseDetail || errorMessage}`);
+      setError(`Upload failed: ${responseDetail || errorMessage}`);
     },
   });
 
@@ -41,40 +49,58 @@ const EditionsLibrary: React.FC = () => {
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
     } else {
-      alert('Please select a PDF file');
+      setError('Please select a PDF file');
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !newspaperName || !editionDate) {
-      alert('Please fill in all fields');
+      setError('Please fill in all fields');
       return;
+    }
+
+    const savedToken = localStorage.getItem('adminToken');
+    if (savedToken) {
+      localStorage.setItem('adminToken', savedToken);
     }
 
     uploadMutation.mutate({ file, newspaperName, editionDate });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getStatusColor = (status: string) => {
-    return `status-${status}`;
-  };
-
-  if (isLoading) {
-    return <div className="loading">Loading editions...</div>;
-  }
-
-  if (error) {
-    return <div className="error">Error loading editions: {(error as Error).message}</div>;
+  if (!isAuthenticated) {
+    return (
+      <div className="admin-login">
+        <h1>Admin Login</h1>
+        <form onSubmit={handleLogin}>
+          <div className="form-group">
+            <label htmlFor="token">Admin Token:</label>
+            <input
+              type="password"
+              id="token"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Enter admin token"
+              required
+            />
+          </div>
+          <button type="submit" className="btn">Login</button>
+        </form>
+        <p className="hint">Use the ADMIN_TOKEN from your environment variables</p>
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div className="admin-page">
+      <div className="admin-header">
+        <h1>Admin Dashboard</h1>
+        <button onClick={logout} className="btn btn-secondary">Logout</button>
+      </div>
+
       <div className="upload-form">
         <h2>Upload Newspaper Edition</h2>
+        {error && <div className="error-message">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="file">PDF File:</label>
@@ -111,36 +137,8 @@ const EditionsLibrary: React.FC = () => {
           </button>
         </form>
       </div>
-
-      <div className="editions-section">
-        <h2>Editions Library</h2>
-        {!editions || editions.length === 0 ? (
-          <p>No editions uploaded yet.</p>
-        ) : (
-          <div className="editions-grid">
-            {editions.map((edition: Edition) => (
-              <Link key={edition.id} to={`/edition/${edition.id}`} className="edition-card">
-                <h3>{edition.newspaper_name}</h3>
-                <div className="meta">
-                  <div>Date: {formatDate(edition.edition_date)}</div>
-                  <div>Pages: {edition.num_pages}</div>
-                  <div>Created: {formatDate(edition.created_at)}</div>
-                </div>
-                <div className={`status ${getStatusColor(edition.status)}`}>
-                  {edition.status}
-                </div>
-                {edition.error_message && (
-                  <div className="error-message">
-                    Error: {edition.error_message}
-                  </div>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
 
-export default EditionsLibrary;
+export default Admin;
