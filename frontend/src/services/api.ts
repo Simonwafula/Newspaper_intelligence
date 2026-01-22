@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
 const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
 const api = axios.create({

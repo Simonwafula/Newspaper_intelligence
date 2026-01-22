@@ -41,7 +41,7 @@ dev:
 
 dev-backend:
 	@echo "Starting backend development server..."
-	@cd backend && PYTHONPATH=$$PWD uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	@cd backend && PYTHONPATH=$$PWD uvicorn app.main:app --reload --host 0.0.0.0 --port 8007
 
 dev-frontend:
 	@echo "Starting frontend development server..."

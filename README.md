@@ -54,8 +54,8 @@ npm run dev
 
 The application will be available at:
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+- Backend API: http://localhost:8007
+- API Documentation: http://localhost:8007/docs
 
 ## Usage
 
@@ -225,7 +225,7 @@ sudo systemctl start mag-newspaper-api
 ```
 
 7. **Configure OpenLiteSpeed:**
-   - Set up reverse proxy from `/` and `/api` to `http://127.0.0.1:8000`
+   - Set up reverse proxy from `/` and `/api` to `http://127.0.0.1:8007`
    - Configure static file serving for `frontend/dist`
    - Enable HTTPS with SSL certificate
 
@@ -298,7 +298,7 @@ sudo chmod -R 755 /home/mag.mstatilitechnologies.com/storage
 
 **OpenLiteSpeed proxy issues:**
 - Check OLS error logs: `/usr/local/lsws/logs/error.log`
-- Verify backend is accessible: `curl http://127.0.0.1:8000/api/healthz`
+- Verify backend is accessible: `curl http://127.0.0.1:8007/api/healthz`
 - Check proxy configuration in CyberPanel
 
 #### Security Considerations

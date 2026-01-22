@@ -304,12 +304,12 @@ rsync -av /var/lib/newspaper-intelligence/storage/ \
 
 ```bash
 # Test admin token protection
-curl -X POST http://localhost:8000/api/editions \
+curl -X POST http://localhost:8007/api/editions \
   -H "Content-Type: application/json" \
   -d '{"test": "data"}' \
   # Should return 401
 
-curl -X POST http://localhost:8000/api/editions \
+curl -X POST http://localhost:8007/api/editions \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: your-secure-token" \
   -d '{"test": "data"}' \

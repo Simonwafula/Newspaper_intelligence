@@ -648,7 +648,7 @@ npm run dev
 alembic upgrade head
 
 # Verify Export API
-curl -o export.csv "http://localhost:8000/api/export/edition/1/export/all.csv"
+curl -o export.csv "http://localhost:8007/api/export/edition/1/export/all.csv"
 ```
 
 ### Git Workflow

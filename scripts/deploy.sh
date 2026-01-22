@@ -231,7 +231,7 @@ health_check() {
     sleep 5
     
     # Check if backend is responding
-    if curl -f -s "http://127.0.0.1:8000/api/healthz" > /dev/null; then
+    if curl -f -s "http://127.0.0.1:8007/api/healthz" > /dev/null; then
         success "Backend health check passed"
     else
         error "Backend health check failed"

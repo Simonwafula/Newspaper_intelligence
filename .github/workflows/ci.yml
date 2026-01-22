@@ -141,15 +141,15 @@ jobs:
       run: |
         cd backend
         # Start backend in background
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        uvicorn app.main:app --host 0.0.0.0 --port 8007 &
         BACKEND_PID=$!
         
         # Wait for backend to start
         sleep 10
         
         # Test basic API endpoints
-        curl -f http://localhost:8000/api/editions/ || exit 1
-        curl -f http://localhost:8000/docs || exit 1
+        curl -f http://localhost:8007/api/editions/ || exit 1
+        curl -f http://localhost:8007/docs || exit 1
         
         # Stop backend
         kill $BACKEND_PID || true

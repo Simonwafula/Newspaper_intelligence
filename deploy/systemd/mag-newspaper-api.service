@@ -9,7 +9,7 @@ Group=magms2596
 WorkingDirectory=/home/mag.mstatilitechnologies.com/public_html
 Environment=PATH=/home/mag.mstatilitechnologies.com/.venv/bin
 EnvironmentFile=/home/mag.mstatilitechnologies.com/.env
-ExecStart=/home/mag.mstatilitechnologies.com/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecStart=/home/mag.mstatilitechnologies.com/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8007
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10

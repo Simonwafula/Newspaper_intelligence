@@ -53,7 +53,7 @@ Ownership:
 
 ## Backend Service (systemd)
 Backend runs as:
-- `uvicorn app.main:app --host 127.0.0.1 --port 8000`
+- `uvicorn app.main:app --host 127.0.0.1 --port 8007`
 
 Expectations:
 - Only listens on localhost (not public)
@@ -65,7 +65,7 @@ Service file template must live in repo:
 
 ## OpenLiteSpeed Reverse Proxy
 OpenLiteSpeed (CyberPanel vhost) must be configured to proxy:
-- `/` (and `/api`) → `http://127.0.0.1:8000`
+- `/` (and `/api`) → `http://127.0.0.1:8007`
 
 Because no Docker is used, backend must always be reachable locally.
 
