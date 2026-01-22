@@ -474,3 +474,103 @@ a:hover {
   margin: 1rem 0;
   border: 1px solid #ffeaa7;
 }
+
+/* Processing controls and status */
+.processing-controls {
+  margin: 1rem 0;
+}
+
+.processing-status {
+  background-color: #e3f2fd;
+  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  color: #1976d2;
+  margin-bottom: 0.5rem;
+}
+
+.pulse {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #1976d2;
+  margin-right: 0.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Extraction logs */
+.extraction-logs {
+  margin-top: 2rem;
+}
+
+.extraction-logs h4 {
+  margin-bottom: 1rem;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.5rem;
+}
+
+.log-entry {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.log-entry.success {
+  border-left: 4px solid #28a745;
+  background-color: #f8fff9;
+}
+
+.log-entry.error {
+  border-left: 4px solid #dc3545;
+  background-color: #fff8f8;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.log-details {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.log-stats {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  margin-top: 0.5rem;
+}

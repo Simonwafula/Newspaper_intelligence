@@ -49,6 +49,23 @@ export const editionsApi = {
     const response = await api.post(`/api/editions/${id}/process`);
     return response.data;
   },
+
+  // Get processing status and logs
+  getProcessingStatus: async (id: number): Promise<{
+    edition: Edition;
+    extraction_runs: Array<{
+      id: number;
+      version: string;
+      success: boolean;
+      started_at: string;
+      finished_at?: string;
+      log_path?: string;
+      stats?: Record<string, unknown>;
+    }>;
+  }> => {
+    const response = await api.get(`/api/processing/${id}/status`);
+    return response.data;
+  },
 };
 
 export const itemsApi = {
