@@ -1,10 +1,12 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import os
 
+from app.api import editions, export, items, processing, search
+from app.db.database import Base, engine
 from app.settings import settings
-from app.db.database import engine, Base
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -34,8 +36,7 @@ if os.path.exists(settings.storage_path):
 async def health_check():
     return {"status": "healthy"}
 
-# Import routes
-from app.api import editions, processing, items, search, export
+
 
 app.include_router(editions.router, prefix="/api/editions", tags=["editions"])
 app.include_router(processing.router, prefix="/api/editions", tags=["processing"])

@@ -1,12 +1,12 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
 from enum import Enum
+
+from pydantic import BaseModel, Field
 
 
 class EditionStatus(str, Enum):
     UPLOADED = "UPLOADED"
-    PROCESSING = "PROCESSING" 
+    PROCESSING = "PROCESSING"
     READY = "READY"
     FAILED = "FAILED"
 
@@ -38,9 +38,9 @@ class EditionResponse(BaseModel):
     file_hash: str
     num_pages: int
     status: EditionStatus
-    error_message: Optional[str] = None
+    error_message: str | None = None
     created_at: datetime
-    processed_at: Optional[datetime] = None
+    processed_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -50,8 +50,8 @@ class PageResponse(BaseModel):
     id: int
     edition_id: int
     page_number: int
-    image_path: Optional[str] = None
-    extracted_text: Optional[str] = None
+    image_path: str | None = None
+    extracted_text: str | None = None
     created_at: datetime
 
     class Config:
@@ -61,14 +61,14 @@ class PageResponse(BaseModel):
 class ItemResponse(BaseModel):
     id: int
     edition_id: int
-    page_id: Optional[int] = None
+    page_id: int | None = None
     page_number: int
     item_type: ItemType
-    subtype: Optional[ItemSubtype] = None
-    title: Optional[str] = None
-    text: Optional[str] = None
-    bbox_json: Optional[dict] = None
-    extracted_entities_json: Optional[dict] = None
+    subtype: ItemSubtype | None = None
+    title: str | None = None
+    text: str | None = None
+    bbox_json: dict | None = None
+    extracted_entities_json: dict | None = None
     created_at: datetime
 
     class Config:
@@ -77,10 +77,10 @@ class ItemResponse(BaseModel):
 
 class SearchResult(BaseModel):
     item_id: int
-    title: Optional[str] = None
+    title: str | None = None
     page_number: int
     snippet: str
-    highlights: List[str]
+    highlights: list[str]
 
 
 class HealthResponse(BaseModel):

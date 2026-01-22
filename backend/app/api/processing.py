@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -24,9 +24,9 @@ async def process_edition(
             status_code=404,
             detail="Edition not found"
         )
-    
+
     # Add background task to process the edition
     processing_service = create_processing_service()
     background_tasks.add_task(processing_service.process_edition, edition_id, db)
-    
+
     return edition
