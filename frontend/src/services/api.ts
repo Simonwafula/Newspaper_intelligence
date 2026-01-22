@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Edition, Item } from '../types';
+import { Edition, Item, SearchResult, ItemType, ItemSubtype } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -77,6 +77,55 @@ export const itemsApi = {
   // Get single item
   getItem: async (id: number): Promise<Item> => {
     const response = await api.get(`/api/items/item/${id}`);
+    return response.data;
+  },
+};
+
+export const searchApi = {
+  // Search within an edition
+  searchEdition: async (
+    editionId: number,
+    query: string,
+    filters?: {
+      item_type?: ItemType;
+      subtype?: ItemSubtype;
+      page_number?: number;
+      skip?: number;
+      limit?: number;
+    }
+  ): Promise<SearchResult[]> => {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    if (filters?.item_type) params.append('item_type', filters.item_type);
+    if (filters?.subtype) params.append('subtype', filters.subtype);
+    if (filters?.page_number) params.append('page_number', filters.page_number.toString());
+    if (filters?.skip) params.append('skip', filters.skip.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/api/search/edition/${editionId}/search?${params}`);
+    return response.data;
+  },
+
+  // Search across all editions
+  searchAll: async (
+    query: string,
+    filters?: {
+      item_type?: ItemType;
+      subtype?: ItemSubtype;
+      newspaper_name?: string;
+      skip?: number;
+      limit?: number;
+    }
+  ): Promise<SearchResult[]> => {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    if (filters?.item_type) params.append('item_type', filters.item_type);
+    if (filters?.subtype) params.append('subtype', filters.subtype);
+    if (filters?.newspaper_name) params.append('newspaper_name', filters.newspaper_name);
+    if (filters?.skip) params.append('skip', filters.skip.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/api/search/search?${params}`);
     return response.data;
   },
 };

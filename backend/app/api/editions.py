@@ -12,6 +12,7 @@ from app.db.database import get_db
 from app.models import Edition, Page, Item, ExtractionRun
 from app.schemas import EditionCreate, EditionResponse, EditionStatus
 from app.settings import settings
+from typing import Optional
 
 router = APIRouter()
 
@@ -173,9 +174,9 @@ async def reprocess_edition(edition_id: int, db: Session = Depends(get_db)):
         )
     
     # Reset status to trigger reprocessing
-    edition.status = EditionStatus.UPLOADED
-    edition.error_message = None
-    edition.processed_at = None
+    edition.status = EditionStatus.UPLOADED.value
+    edition.error_message = None  # type: ignore
+    edition.processed_at = None  # type: ignore
     
     db.commit()
     db.refresh(edition)
