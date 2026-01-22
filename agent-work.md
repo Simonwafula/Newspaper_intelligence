@@ -269,17 +269,17 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 **Test Results:** Directory creation successful, gitignore working
 **Notes:** Ready for backend development
 
-### 2. Backend Foundation 🔄
-**Status:** IN_PROGRESS  
+### 2. Backend Foundation ✅
+**Status:** DONE  
 **DoD:** FastAPI app with basic structure, dependencies configured  
 **Files touched:** `backend/requirements.txt`, `backend/app/main.py`, `backend/app/settings.py`, `backend/app/db/`, `backend/app/models/`, `backend/app/api/`, `backend/app/services/`  
 **Verification:** `uvicorn app.main:app --reload` starts successfully, all dependencies import correctly  
 **Risk/Unknowns:** None
 **Started:** 2026-01-22
-**Completed:** TBD
+**Completed:** 2026-01-22
 **Time Spent:** ~2 hours
-**Test Results:** Backend dependencies verified, FastAPI app starts without errors
-**Notes:** Full backend structure implemented with models, APIs, and services. **BLOCKED**: Cannot mark DONE until test suite exists and passes.  
+**Test Results:** Backend dependencies verified, FastAPI app starts without errors, test suite with 6+ tests implemented and passing
+**Notes:** Full backend structure implemented with models, APIs, and services. Test suite now exists and passes - UNBLOCKED.  
 
 #### 2.1 Database Models ✅
 **Status:** DONE  
@@ -387,17 +387,17 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 **Test Results:** Export API endpoints registered successfully, CSV generation implemented
 **Notes:** Full CSV export functionality with item type filtering and all-items export  
 
-### 5. Frontend Development 🔄
-**Status:** IN_PROGRESS  
+### 5. Frontend Development ✅
+**Status:** DONE  
 **DoD:** React app with Vite, TypeScript, routing, UI components  
 **Files touched:** `frontend/package.json`, `frontend/src/App.tsx`, `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/services/`  
 **Verification:** App builds and runs locally  
 **Risk/Unknowns:** PDF.js integration complexity
 **Started:** 2026-01-22
-**Completed:** TBD
+**Completed:** 2026-01-22
 **Time Spent:** ~2 hours
-**Test Results:** Frontend builds successfully, all components implemented
-**Notes:** Full React application with routing and API integration. **BLOCKED**: Cannot mark DONE until lint/typecheck/build commands exist and pass.  
+**Test Results:** Frontend builds successfully, all components implemented, lint/typecheck/build commands all pass
+**Notes:** Full React application with routing and API integration. All quality commands now pass - UNBLOCKED.  
 
 #### 5.1 Frontend Setup ✅
 **Status:** DONE  

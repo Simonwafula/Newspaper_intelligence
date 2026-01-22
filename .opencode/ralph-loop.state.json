@@ -1,9 +1,0 @@
-{
-  "active": true,
-  "iteration": 1,
-  "maxIterations": 5,
-  "completionPromise": "COMPLETE",
-  "prompt": "most of the work is complete though sections 2 and 5 of the TODO Backlog are still reading inprogress",
-  "startedAt": "2026-01-22T17:59:15.147Z",
-  "model": ""
-}
