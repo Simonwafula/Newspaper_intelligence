@@ -1,12 +1,14 @@
 import axios from 'axios';
-import { Edition, Item, SearchResult, ItemType, ItemSubtype } from '../types';
+import { Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    ...(ADMIN_TOKEN && { 'X-Admin-Token': ADMIN_TOKEN }),
   },
 });
 
@@ -130,19 +132,66 @@ export const searchApi = {
       item_type?: ItemType;
       subtype?: ItemSubtype;
       newspaper_name?: string;
+      date_from?: string;
+      date_to?: string;
       skip?: number;
       limit?: number;
     }
-  ): Promise<SearchResult[]> => {
+  ): Promise<GlobalSearchResult[]> => {
     const params = new URLSearchParams();
     params.append('q', query);
     if (filters?.item_type) params.append('item_type', filters.item_type);
     if (filters?.subtype) params.append('subtype', filters.subtype);
     if (filters?.newspaper_name) params.append('newspaper_name', filters.newspaper_name);
+    if (filters?.date_from) params.append('date_from', filters.date_from);
+    if (filters?.date_to) params.append('date_to', filters.date_to);
     if (filters?.skip) params.append('skip', filters.skip.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
 
     const response = await api.get(`/api/search/search?${params}`);
+    return response.data;
+  },
+};
+
+export const savedSearchesApi = {
+  // Get all saved searches
+  getSavedSearches: async (skip = 0, limit = 100, activeOnly = true): Promise<SavedSearch[]> => {
+    const response = await api.get(`/api/saved-searches/?skip=${skip}&limit=${limit}&active_only=${activeOnly}`);
+    return response.data;
+  },
+
+  // Get saved search by ID
+  getSavedSearch: async (id: number): Promise<SavedSearch> => {
+    const response = await api.get(`/api/saved-searches/${id}`);
+    return response.data;
+  },
+
+  // Create saved search
+  createSavedSearch: async (search: SavedSearchCreate): Promise<SavedSearch> => {
+    const response = await api.post('/api/saved-searches', search);
+    return response.data;
+  },
+
+  // Update saved search
+  updateSavedSearch: async (id: number, search: SavedSearchCreate): Promise<SavedSearch> => {
+    const response = await api.put(`/api/saved-searches/${id}`, search);
+    return response.data;
+  },
+
+  // Delete saved search
+  deleteSavedSearch: async (id: number): Promise<void> => {
+    await api.delete(`/api/saved-searches/${id}`);
+  },
+
+  // Update search matches
+  updateSearchMatches: async (id: number): Promise<SavedSearch> => {
+    const response = await api.post(`/api/saved-searches/${id}/update-matches`);
+    return response.data;
+  },
+
+  // Update all search matches
+  updateAllSearchMatches: async (): Promise<{ message: string; updated: number; failed: number }> => {
+    const response = await api.post('/api/saved-searches/update-all-matches');
     return response.data;
   },
 };

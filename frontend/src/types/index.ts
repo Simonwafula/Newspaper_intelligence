@@ -46,3 +46,40 @@ export interface SearchResult {
   snippet: string;
   highlights: string[];
 }
+
+export interface GlobalSearchResult {
+  item_id: number;
+  title?: string;
+  page_number: number;
+  snippet: string;
+  highlights: string[];
+  edition_id: number;
+  newspaper_name: string;
+  edition_date: string;
+  item_type: ItemType;
+  subtype?: ItemSubtype;
+}
+
+export interface SavedSearch {
+  id: number;
+  name: string;
+  description?: string;
+  query: string;
+  item_types?: ItemType[];
+  date_from?: string;
+  date_to?: string;
+  match_count: number;
+  last_run?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedSearchCreate {
+  name: string;
+  description?: string;
+  query: string;
+  item_types?: ItemType[];
+  date_from?: string;
+  date_to?: string;
+}

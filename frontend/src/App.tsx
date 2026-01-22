@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import EditionsLibrary from './pages/EditionsLibrary';
 import EditionDetail from './pages/EditionDetail';
 import Search from './pages/Search';
+import GlobalSearch from './pages/GlobalSearch';
+import SavedSearches from './pages/SavedSearches';
 import './App.css';
 
 // Create a client
@@ -26,6 +28,8 @@ function App() {
             <nav className="App-nav">
               <Link to="/" className="nav-link">Editions</Link>
               <Link to="/search" className="nav-link">Search</Link>
+              <Link to="/global-search" className="nav-link">Global Search</Link>
+              <Link to="/saved-searches" className="nav-link">Saved Searches</Link>
             </nav>
           </header>
           <main className="App-main">
@@ -33,6 +37,8 @@ function App() {
               <Route path="/" element={<EditionsLibrary />} />
               <Route path="/edition/:id" element={<EditionDetail />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/global-search" element={<GlobalSearch />} />
+              <Route path="/saved-searches" element={<SavedSearches />} />
             </Routes>
           </main>
         </div>

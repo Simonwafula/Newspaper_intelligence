@@ -574,3 +574,68 @@ a:hover {
   white-space: pre-wrap;
   margin-top: 0.5rem;
 }
+
+/* Global Search Styles */
+.global-search-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.global-search-container h1 {
+  color: #282c34;
+  margin-bottom: 0.5rem;
+}
+
+.global-search-container p {
+  color: #666;
+  margin-bottom: 2rem;
+  font-style: italic;
+}
+
+.search-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.item-type-badge {
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.search-result-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+}
+
+.meta-item:not(:last-child)::after {
+  content: "•";
+  margin-left: 1rem;
+  color: #ccc;
+}
+
+.meta-item a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+.meta-item a:hover {
+  text-decoration: underline;
+}

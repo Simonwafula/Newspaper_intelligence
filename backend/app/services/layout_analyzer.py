@@ -1,6 +1,8 @@
 import logging
 import re
 
+from .classifieds_intelligence import create_classifieds_intelligence
+
 logger = logging.getLogger(__name__)
 
 
@@ -8,6 +10,9 @@ class LayoutAnalyzer:
     """Analyzes PDF layout to extract headlines, stories, and classifieds."""
 
     def __init__(self):
+        # Initialize classifieds intelligence
+        self.classifieds_service = create_classifieds_intelligence()
+
         # Patterns for classified ad detection
         self.classified_patterns = {
             'TENDER': [
@@ -176,13 +181,23 @@ class LayoutAnalyzer:
             full_text = '\n'.join(grouped_text)
             item_type, subtype = self.classify_text_block(full_text)
 
+            # Extract structured data for classifieds
+            structured_data = {}
+            if item_type == 'CLASSIFIED' and subtype:
+                structured_data = self.classifieds_service.process_classified(full_text, subtype)
+
             items.append({
                 'title': headline['text'],
                 'text': full_text,
                 'item_type': item_type,
                 'subtype': subtype,
                 'bbox_json': grouped_bbox,
-                'confidence': headline['score']
+                'confidence': headline['score'],
+                'contact_info_json': structured_data.get('contact_info'),
+                'price_info_json': structured_data.get('price_info'),
+                'date_info_json': structured_data.get('date_info'),
+                'location_info_json': structured_data.get('location_info'),
+                'classification_details_json': structured_data.get('classification_details')
             })
 
         # Process remaining standalone blocks
@@ -196,13 +211,23 @@ class LayoutAnalyzer:
 
             item_type, subtype = self.classify_text_block(text)
 
+            # Extract structured data for classifieds
+            structured_data = {}
+            if item_type == 'CLASSIFIED' and subtype:
+                structured_data = self.classifieds_service.process_classified(text, subtype)
+
             items.append({
                 'title': text[:100] + ('...' if len(text) > 100 else ''),  # First 100 chars as title
                 'text': text,
                 'item_type': item_type,
                 'subtype': subtype,
                 'bbox_json': block.get('bbox'),
-                'confidence': 1.0
+                'confidence': 1.0,
+                'contact_info_json': structured_data.get('contact_info'),
+                'price_info_json': structured_data.get('price_info'),
+                'date_info_json': structured_data.get('date_info'),
+                'location_info_json': structured_data.get('location_info'),
+                'classification_details_json': structured_data.get('classification_details')
             })
 
         return items

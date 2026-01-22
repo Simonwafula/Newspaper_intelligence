@@ -82,6 +82,13 @@ class Item(Base):
     # Extracted entities
     extracted_entities_json = Column(JSON, nullable=True)
 
+    # Structured classifieds fields
+    contact_info_json = Column(JSON, nullable=True)  # Phone, email, address
+    price_info_json = Column(JSON, nullable=True)     # Price, currency, negotiable
+    date_info_json = Column(JSON, nullable=True)      # Event dates, deadlines
+    location_info_json = Column(JSON, nullable=True)   # Locations, addresses
+    classification_details_json = Column(JSON, nullable=True)  # Additional structured data
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -110,3 +117,26 @@ class ExtractionRun(Base):
 
     # Relationships
     edition = relationship("Edition", back_populates="extraction_runs")
+
+
+class SavedSearch(Base):
+    __tablename__ = "saved_searches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Search parameters
+    query = Column(Text, nullable=False)  # Search query text
+    item_types = Column(JSON, nullable=True)  # Array of item types to filter
+    date_from = Column(DateTime, nullable=True)  # Date range filter
+    date_to = Column(DateTime, nullable=True)
+
+    # Matching and notification
+    match_count = Column(Integer, nullable=False, default=0)  # Current match count
+    last_run = Column(DateTime(timezone=True), nullable=True)  # When matches were last calculated
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

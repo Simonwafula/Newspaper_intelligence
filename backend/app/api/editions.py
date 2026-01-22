@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.auth import verify_admin_token
 from app.db.database import get_db
 from app.models import Edition
 from app.schemas import EditionResponse, EditionStatus
@@ -62,7 +63,8 @@ async def create_edition(
     file: UploadFile = File(...),
     newspaper_name: str = Form(...),
     edition_date: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_admin_token)
 ):
     """
     Upload a new PDF edition.
@@ -158,7 +160,11 @@ async def get_edition(edition_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{edition_id}/reprocess", response_model=EditionResponse)
-async def reprocess_edition(edition_id: int, db: Session = Depends(get_db)):
+async def reprocess_edition(
+    edition_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(verify_admin_token)
+):
     """
     Reprocess an edition (re-run text extraction and analysis).
     """

@@ -69,6 +69,11 @@ class ItemResponse(BaseModel):
     text: str | None = None
     bbox_json: dict | None = None
     extracted_entities_json: dict | None = None
+    contact_info_json: dict | None = None
+    price_info_json: dict | None = None
+    date_info_json: dict | None = None
+    location_info_json: dict | None = None
+    classification_details_json: dict | None = None
     created_at: datetime
 
     class Config:
@@ -81,6 +86,46 @@ class SearchResult(BaseModel):
     page_number: int
     snippet: str
     highlights: list[str]
+
+
+class GlobalSearchResult(BaseModel):
+    item_id: int
+    title: str | None = None
+    page_number: int
+    snippet: str
+    highlights: list[str]
+    edition_id: int
+    newspaper_name: str
+    edition_date: datetime
+    item_type: ItemType
+    subtype: ItemSubtype | None = None
+
+
+class SavedSearchCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    query: str = Field(..., min_length=1)
+    item_types: list[ItemType] | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+
+
+class SavedSearchResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    query: str
+    item_types: list[ItemType] | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    match_count: int
+    last_run: datetime | None = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class HealthResponse(BaseModel):
