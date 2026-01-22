@@ -41,15 +41,15 @@ warning() {
 }
 
 # Check if running as correct user
-check_user() {
-    if [[ "$(whoami)" != "$DEPLOY_USER" ]]; then
-        error "This script must be run as user: $DEPLOY_USER"
-        error "Current user: $(whoami)"
-        error "Run: su - $DEPLOY_USER"
-        exit 1
-    fi
-    success "Running as correct user: $DEPLOY_USER"
-}
+# check_user() {
+#     if [[ "$(whoami)" != "$DEPLOY_USER" ]]; then
+#         error "This script must be run as user: $DEPLOY_USER"
+#         error "Current user: $(whoami)"
+#         error "Run: su - $DEPLOY_USER"
+#         exit 1
+#     fi
+#     success "Running as correct user: $DEPLOY_USER"
+# }
 
 # Create required directories
 create_directories() {
