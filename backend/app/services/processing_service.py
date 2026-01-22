@@ -51,8 +51,8 @@ class ProcessingService:
         
         try:
             # Update status to processing
-            edition.status = EditionStatus.PROCESSING
-            edition.error_message = None
+            edition.status = EditionStatus.PROCESSING  # type: ignore
+            edition.error_message = None  # type: ignore
             db.commit()
             
             logger.info(f"Starting processing for edition {edition_id}: {edition.newspaper_name}")
@@ -149,8 +149,8 @@ class ProcessingService:
                     # Continue processing other pages
             
             # Update edition status
-            edition.status = EditionStatus.READY
-            edition.processed_at = datetime.utcnow()
+            edition.status = EditionStatus.READY  # type: ignore
+            edition.processed_at = datetime.utcnow()  # type: ignore
             
             # Update extraction run
             extraction_run.success = True
@@ -171,8 +171,8 @@ class ProcessingService:
             logger.error(f"Processing failed for edition {edition_id}: {e}")
             
             # Update edition status
-            edition.status = EditionStatus.FAILED
-            edition.error_message = str(e)
+            edition.status = EditionStatus.FAILED  # type: ignore
+            edition.error_message = str(e)  # type: ignore
             
             # Update extraction run
             extraction_run.success = False

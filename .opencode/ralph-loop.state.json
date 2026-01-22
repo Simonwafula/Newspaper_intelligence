@@ -1,9 +1,0 @@
-{
-  "active": true,
-  "iteration": 2,
-  "maxIterations": 0,
-  "completionPromise": "COMPLETE",
-  "prompt": "continue implementation for the next in progress or to do feature",
-  "startedAt": "2026-01-22T04:07:35.998Z",
-  "model": ""
-}

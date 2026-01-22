@@ -174,7 +174,7 @@ async def reprocess_edition(edition_id: int, db: Session = Depends(get_db)):
         )
     
     # Reset status to trigger reprocessing
-    edition.status = EditionStatus.UPLOADED.value
+    edition.status = EditionStatus.UPLOADED  # type: ignore
     edition.error_message = None  # type: ignore
     edition.processed_at = None  # type: ignore
     
