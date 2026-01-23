@@ -270,3 +270,55 @@ export interface TrendDashboardResponse {
   volume_trends: VolumeTrend[];
   top_categories: { name: string; count: number }[];
 }
+
+// Structured data types for enhanced classifieds
+export interface JobStructuredData {
+  job_title?: string;
+  employer?: string;
+  salary_min?: number;
+  salary_max?: number;
+  salary_currency?: string;
+  salary_description?: string;
+  experience_years?: number;
+  experience_years_min?: number;
+  experience_years_max?: number;
+  sector?: string[];
+  qualifications?: string[];
+  education_requirements?: string[];
+  application_deadline?: string;
+  work_location?: string;
+  work_mode?: string;
+}
+
+export interface TenderStructuredData {
+  tender_reference?: string;
+  issuer?: string;
+  title?: string;
+  category?: string[];
+  estimated_value?: number;
+  currency?: string;
+  deadline?: string;
+  eligibility?: string[];
+  contact?: string[];
+}
+
+export interface ItemWithStructuredData extends Item {
+  structured_data?: JobStructuredData | TenderStructuredData | Record<string, unknown>;
+  contact_info_json?: {
+    phone_numbers?: string[];
+    email_addresses?: string[];
+  };
+  price_info_json?: {
+    amount?: number;
+    currency?: string;
+    negotiable?: boolean;
+  };
+  date_info_json?: {
+    dates_mentioned?: string[];
+    deadlines?: string[];
+  };
+  location_info_json?: {
+    addresses?: string[];
+    cities?: string[];
+  };
+}

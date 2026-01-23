@@ -375,3 +375,74 @@ class ItemCategory(Base):
         UniqueConstraint('item_id', 'category_id', name='_item_category_uc'),
         {"sqlite_autoincrement": True}
     )
+
+
+class WebhookEventType(str, PyEnum):
+    """Types of events that can trigger webhooks."""
+    EDITION_CREATED = "edition.created"
+    EDITION_PROCESSED = "edition.processed"
+    EDITION_FAILED = "edition.failed"
+    ITEMS_EXTRACTED = "items.extracted"
+    NEW_JOBS = "items.new_jobs"
+    NEW_TENDERS = "items.new_tenders"
+
+
+class Webhook(Base):
+    """Webhook subscriptions for external notifications."""
+    __tablename__ = "webhooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    url = Column(String(500), nullable=False)  # Webhook endpoint URL
+    secret = Column(String(64), nullable=True)  # Optional secret for HMAC signing
+
+    # Event subscriptions
+    events = Column(JSON, nullable=False)  # List of WebhookEventType values
+
+    # Status and settings
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    retry_count = Column(Integer, nullable=False, default=3)  # Max retries on failure
+    timeout_seconds = Column(Integer, nullable=False, default=30)
+
+    # Health tracking
+    last_triggered_at = Column(DateTime(timezone=True), nullable=True)
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_failure_at = Column(DateTime(timezone=True), nullable=True)
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    total_deliveries = Column(Integer, nullable=False, default=0)
+    successful_deliveries = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User")
+    deliveries = relationship("WebhookDelivery", back_populates="webhook", cascade="all, delete-orphan")
+
+
+class WebhookDelivery(Base):
+    """Log of webhook delivery attempts."""
+    __tablename__ = "webhook_deliveries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    webhook_id = Column(Integer, ForeignKey("webhooks.id"), nullable=False, index=True)
+
+    # Event details
+    event_type = Column(String(50), nullable=False, index=True)
+    payload = Column(JSON, nullable=False)  # The data sent to the webhook
+
+    # Delivery status
+    status = Column(String(20), nullable=False, default="pending", index=True)  # pending, success, failed
+    attempts = Column(Integer, nullable=False, default=0)
+    response_status_code = Column(Integer, nullable=True)
+    response_body = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    webhook = relationship("Webhook", back_populates="deliveries")
