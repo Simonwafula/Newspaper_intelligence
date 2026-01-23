@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -57,9 +57,10 @@ function AuthenticatedLayout() {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <Routes>
+    <BrowserRouter>
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <Routes>
           {/* Public routes with public layout */}
           <Route path="/" element={<PublicLayout><PublicLandingPage /></PublicLayout>} />
           <Route path="/login" element={<PublicLayout><LoginPage /></PublicLayout>} />
@@ -92,9 +93,10 @@ function App() {
           <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
 
           <Route path="*" element={<ErrorPage />} />
-        </Routes>
-      </QueryClientProvider>
-    </AuthProvider>
+          </Routes>
+        </QueryClientProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
