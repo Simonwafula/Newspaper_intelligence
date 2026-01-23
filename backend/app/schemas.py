@@ -458,3 +458,8 @@ class TrendDashboardResponse(BaseModel):
     topic_trends: list[TopicTrend]
     volume_trends: list[VolumeTrend]
     top_categories: list[dict[str, Any]]  # name, count
+
+
+# Rebuild models with forward references after all classes are defined
+ItemWithCategoriesResponse.model_rebuild()
+GlobalSearchResult.model_rebuild()
