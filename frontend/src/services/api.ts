@@ -7,7 +7,8 @@ import {
   CollectionWithItems, TrendDashboardResponse
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
+// Use empty string for production (relative URLs) or localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8007' : '');
 
 // Get JWT token from localStorage
 const getAuthToken = (): string | null => {
