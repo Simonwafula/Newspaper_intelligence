@@ -1,6 +1,5 @@
 import csv
 import io
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -8,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_admin_user
 from app.db.database import get_db
-from app.models import Edition, Item
+from app.models import Item
 from app.schemas import ItemSubtype, ItemType
 
 router = APIRouter()
@@ -25,40 +24,40 @@ async def export_jobs_csv(
 ):
     """Export all job listings with enhanced structured fields."""
     from datetime import datetime
-    from fastapi.responses import JSONResponse
-    
+
+
     # Build query for job classifieds
     query = db.query(Item).filter(
         Item.item_type == ItemType.CLASSIFIED,
         Item.subtype == ItemSubtype.JOB
     )
-    
+
     # Add date filters
     if date_from:
         try:
             date_from_obj = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             query = query.filter(Item.created_at >= date_from_obj)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_from format. Use ISO format.")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_from format. Use ISO format.") from e
+
     if date_to:
         try:
             date_to_obj = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             query = query.filter(Item.created_at <= date_to_obj)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format.")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format.") from e
+
     # Get items
     items = query.order_by(Item.created_at.desc()).all()
-    
+
     # Generate CSV with enhanced structure
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "edition_id", "page_number", "title", "text", 
+        "edition_id", "page_number", "title", "text",
         "job_title", "employer", "salary_range", "sector", "created_at"
     ])
-    
+
     for item in items:
         # Get structured data
         structured_data = item.structured_data or {}
@@ -69,7 +68,7 @@ async def export_jobs_csv(
         salary_range = f"{salary_min}-{salary_max}" if salary_min and salary_max else f"{salary_min or ''}"
         sector = structured_data.get('sector', [''])
         sector_str = ', '.join(sector) if isinstance(sector, list) else str(sector)
-        
+
         writer.writerow([
             str(item.edition_id), str(item.page_number),
             (item.title or "").replace('\n', ' ').strip(),
@@ -77,7 +76,7 @@ async def export_jobs_csv(
             job_title, employer, salary_range, sector_str,
             item.created_at.isoformat() if item.created_at else ""
         ])
-    
+
     filename = f"jobs_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     return StreamingResponse(
         iter([output.getvalue()]), media_type="text/csv",
@@ -96,40 +95,40 @@ async def export_tenders_csv(
 ):
     """Export all tender notices with enhanced structured fields."""
     from datetime import datetime
-    from fastapi.responses import JSONResponse
-    
+
+
     # Build query for tender classifieds
     query = db.query(Item).filter(
         Item.item_type == ItemType.CLASSIFIED,
         Item.subtype == ItemSubtype.TENDER
     )
-    
+
     # Add date filters
     if date_from:
         try:
             date_from_obj = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             query = query.filter(Item.created_at >= date_from_obj)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_from format. Use ISO format.")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_from format. Use ISO format.") from e
+
     if date_to:
         try:
             date_to_obj = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             query = query.filter(Item.created_at <= date_to_obj)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format.")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format.") from e
+
     # Get items
     items = query.order_by(Item.created_at.desc()).all()
-    
+
     # Generate CSV with enhanced structure
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "edition_id", "page_number", "title", "text", 
+        "edition_id", "page_number", "title", "text",
         "tender_reference", "issuer", "estimated_value", "category", "created_at"
     ])
-    
+
     for item in items:
         # Get structured data
         structured_data = item.structured_data or {}
@@ -140,7 +139,7 @@ async def export_tenders_csv(
         estimated_value = f"{value} {currency}" if value and currency else f"{value or ''}"
         category = structured_data.get('category', [''])
         category_str = ', '.join(category) if isinstance(category, list) else str(category)
-        
+
         writer.writerow([
             str(item.edition_id), str(item.page_number),
             (item.title or "").replace('\n', ' ').strip(),
@@ -148,7 +147,7 @@ async def export_tenders_csv(
             tender_ref, issuer, estimated_value, category_str,
             item.created_at.isoformat() if item.created_at else ""
         ])
-    
+
     filename = f"tenders_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     return StreamingResponse(
         iter([output.getvalue()]), media_type="text/csv",

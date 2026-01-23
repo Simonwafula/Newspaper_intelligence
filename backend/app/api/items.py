@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_reader_user
 from app.db.database import get_db
-from app.models import Edition, Item, Category, ItemCategory
-from app.schemas import ItemWithCategoriesResponse, ItemResponse, ItemSubtype, ItemType
+from app.models import Category, Edition, Item, ItemCategory
+from app.schemas import ItemSubtype, ItemType, ItemWithCategoriesResponse
 
 router = APIRouter()
 
@@ -42,7 +42,7 @@ async def get_edition_items(
         query = query.filter(Item.page_number == page_number)
 
     items = query.offset(skip).limit(limit).all()
-    
+
     # Load categories for each item
     result = []
     for item in items:
@@ -52,7 +52,7 @@ async def get_edition_items(
             .filter(ItemCategory.item_id == item.id)
             .all()
         )
-        
+
         item_categories = []
         for item_cat, cat in categories:
             from app.schemas import CategoryResponse
@@ -67,18 +67,18 @@ async def get_edition_items(
                 "updated_at": item_cat.updated_at,
                 "category": CategoryResponse.model_validate(cat)
             })
-        
+
         result.append({
             **item.__dict__,
             "categories": item_categories
         })
-    
+
     return result
 
 
 @router.get("/item/{item_id}", response_model=ItemWithCategoriesResponse)
 async def get_item(
-    item_id: int, 
+    item_id: int,
     db: Session = Depends(get_db),
     _user = Depends(get_reader_user)
 ):
@@ -88,7 +88,7 @@ async def get_item(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     # Load categories for the item
     categories = (
         db.query(ItemCategory, Category)
@@ -96,7 +96,7 @@ async def get_item(
         .filter(ItemCategory.item_id == item.id)
         .all()
     )
-    
+
     item_categories = []
     for item_cat, cat in categories:
         from app.schemas import CategoryResponse
@@ -111,7 +111,7 @@ async def get_item(
             "updated_at": item_cat.updated_at,
             "category": CategoryResponse.model_validate(cat)
         })
-    
+
     return {
         **item.__dict__,
         "categories": item_categories

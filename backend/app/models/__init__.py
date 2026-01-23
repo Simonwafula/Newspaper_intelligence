@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -49,6 +50,11 @@ class User(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
+    collections = relationship("Collection", back_populates="user", cascade="all, delete-orphan")
+    api_keys = relationship("UserAPIKey", back_populates="user", cascade="all, delete-orphan")
 
     def is_admin(self) -> bool:
         """Check if user has admin role."""
@@ -138,6 +144,8 @@ class Item(Base):
     edition = relationship("Edition", back_populates="items")
     page = relationship("Page", back_populates="items")
     categories = relationship("ItemCategory", back_populates="item", cascade="all, delete-orphan")
+    favorited_by = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
+    collection_items = relationship("CollectionItem", back_populates="item", cascade="all, delete-orphan")
 
 
 class ExtractionRun(Base):
@@ -190,34 +198,34 @@ class AccessRequest(Base):
     __tablename__ = "access_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    
+
     # Requester information
     full_name = Column(String(200), nullable=False)
     email = Column(String(255), nullable=False, index=True)
     organization = Column(String(200), nullable=True)
     phone = Column(String(50), nullable=True)
-    
+
     # Request details
     reason = Column(Text, nullable=False)  # Reason for access / intended use
-    
+
     # Request status and processing
     status = Column(String(20), nullable=False, default=AccessRequestStatus.PENDING.value, index=True)
     processed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
     admin_notes = Column(Text, nullable=True)  # Admin notes on approval/rejection
-    
+
     # Anti-spam and tracking
     ip_address = Column(String(45), nullable=True)  # IPv6 compatible
     user_agent = Column(Text, nullable=True)
     honeypot_field = Column(String(100), nullable=True)  # Bot detection
-    
+
     # Consent
     consent_not_redistribute = Column(Boolean, nullable=False, default=False)
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     processed_by = relationship("User", foreign_keys=[processed_by_user_id])
 
@@ -232,30 +240,90 @@ class UserAPIKey(Base):
     key_hash = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256 hash
     key_prefix = Column(String(10), nullable=False)  # First few characters for identification
     description = Column(Text, nullable=True)  # Key purpose/description
-    
+
     # Permissions and limits
     permissions = Column(JSON, nullable=True)  # Array of allowed endpoints/resources
     rate_limit_per_hour = Column(Integer, nullable=False, default=1000)  # Requests per hour
     rate_limit_per_day = Column(Integer, nullable=False, default=10000)  # Requests per day
-    
+
     # Status and tracking
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     total_requests = Column(Integer, nullable=False, default=0)  # Total requests ever made
-    
+
     # Validity period
     expires_at = Column(DateTime(timezone=True), nullable=True)  # Optional expiration
-    
+
     # Metadata
     created_from_ip = Column(String(45), nullable=True)  # IP address that created the key
     user_agent = Column(Text, nullable=True)  # Browser/client info
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", back_populates="api_keys")
+
+
+class Favorite(Base):
+    """User-specific bookmarks for newspaper items."""
+    __tablename__ = "favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False, index=True)
+
+    # Metadata
+    notes = Column(Text, nullable=True)  # Personal notes on this favorite
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="favorites")
+    item = relationship("Item", back_populates="favorited_by")
+
+
+class Collection(Base):
+    """User-managed groups of items for research or personal interest."""
+    __tablename__ = "collections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    color = Column(String(7), nullable=False, default="#3B82F6")  # Hex color for UI
+
+    # Settings
+    is_public = Column(Boolean, nullable=False, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="collections")
+    items = relationship("CollectionItem", back_populates="collection", cascade="all, delete-orphan")
+
+
+class CollectionItem(Base):
+    """Junction table for collections and items with per-item notes."""
+    __tablename__ = "collection_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    collection_id = Column(Integer, ForeignKey("collections.id"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False, index=True)
+
+    # Research metadata
+    notes = Column(Text, nullable=True)  # Research notes or annotations
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    collection = relationship("Collection", back_populates="items")
+    item = relationship("Item", back_populates="collection_items")
 
 
 class Category(Base):
@@ -269,14 +337,14 @@ class Category(Base):
     color = Column(String(7), nullable=False, default="#6B7280")  # Hex color for UI badges
     keywords = Column(JSON, nullable=True)  # List of keywords for auto-classification
     is_active = Column(Boolean, nullable=False, default=True, index=True)
-    
+
     # Ordering
     sort_order = Column(Integer, nullable=False, default=0)
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     item_categories = relationship("ItemCategory", back_populates="category", cascade="all, delete-orphan")
 
@@ -288,21 +356,22 @@ class ItemCategory(Base):
     id = Column(Integer, primary_key=True, index=True)
     item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    
+
     # Classification metadata
     confidence = Column(Integer, nullable=False, default=50)  # 0-100 confidence score
     source = Column(String(20), nullable=False, default="auto")  # "auto" or "manual"
     notes = Column(Text, nullable=True)  # Optional notes on classification reasoning
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
+
     # Relationships
     item = relationship("Item", back_populates="categories")
     category = relationship("Category", back_populates="item_categories")
-    
+
     # Ensure each item-category combination is unique
     __table_args__ = (
+        UniqueConstraint('item_id', 'category_id', name='_item_category_uc'),
         {"sqlite_autoincrement": True}
     )

@@ -4,19 +4,16 @@ External API router for third-party application access with API key authenticati
 
 import hashlib
 import secrets
-import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, func
 
 from app.api.auth import get_current_user
 from app.db.database import get_db
-from app.models import User, UserAPIKey, Item, Edition
-from app.settings import settings
+from app.models import Edition, Item, User, UserAPIKey
 
 router = APIRouter(prefix="/external", tags=["external-api"])
 
@@ -26,21 +23,21 @@ security = HTTPBearer(auto_error=False)
 
 class APIKeyManager:
     """Manages API key authentication and rate limiting."""
-    
+
     def __init__(self, db: Session):
         self.db = db
-        self.request_counts: Dict[str, List[float]] = {}  # key_hash -> [timestamp, ...]
-        
+        self.request_counts: dict[str, list[float]] = {}  # key_hash -> [timestamp, ...]
+
     def hash_api_key(self, api_key: str) -> str:
         """Create SHA-256 hash of API key for storage."""
         return hashlib.sha256(api_key.encode()).hexdigest()
-    
+
     def generate_api_key(self, user_id: int, name: str, description: str = None) -> str:
         """Generate a new API key for a user."""
         # Generate secure random key
         api_key = f"mag_newspaper_{secrets.token_urlsafe(32)}"
         key_hash = self.hash_api_key(api_key)
-        
+
         # Store in database
         db_key = UserAPIKey(
             user_id=user_id,
@@ -52,24 +49,24 @@ class APIKeyManager:
             created_from_ip="system",
             user_agent="system_generated"
         )
-        
+
         self.db.add(db_key)
         self.db.commit()
         self.db.refresh(db_key)
-        
+
         return api_key
-    
-    def verify_api_key(self, api_key: str) -> Optional[UserAPIKey]:
+
+    def verify_api_key(self, api_key: str) -> UserAPIKey | None:
         """Verify API key and return key details if valid."""
         key_hash = self.hash_api_key(api_key)
-        
+
         # Find active key in database
         api_key_record = (
             self.db.query(UserAPIKey)
             .filter(
                 and_(
                     UserAPIKey.key_hash == key_hash,
-                    UserAPIKey.is_active == True,
+                    UserAPIKey.is_active,
                     or_(
                         UserAPIKey.expires_at.is_(None),
                         UserAPIKey.expires_at > datetime.utcnow()
@@ -78,53 +75,53 @@ class APIKeyManager:
             )
             .first()
         )
-        
+
         if not api_key_record:
             return None
-        
+
         # Update last used timestamp and request count
         api_key_record.last_used_at = datetime.utcnow()
         api_key_record.total_requests += 1
         self.db.commit()
-        
+
         return api_key_record
-    
+
     def check_rate_limit(self, api_key_record: UserAPIKey) -> bool:
         """Check if API key is within rate limits."""
         now = datetime.utcnow()
         hour_ago = now - timedelta(hours=1)
         day_ago = now - timedelta(days=1)
-        
+
         # Clean old entries from request tracking
         key_hash = api_key_record.key_hash
         if key_hash in self.request_counts:
             # Remove old timestamps
             self.request_counts[key_hash] = [
-                ts for ts in self.request_counts[key_hash] 
+                ts for ts in self.request_counts[key_hash]
                 if ts > hour_ago.timestamp()
             ]
-        
+
         # Get current request count for this key
         current_requests = len(self.request_counts.get(key_hash, []))
-        
+
         # Check hourly rate limit
         if current_requests >= api_key_record.rate_limit_per_hour:
             return False
-        
+
         # Check daily rate limit
         day_requests = len([
             ts for ts in self.request_counts.get(key_hash, [])
             if ts > day_ago.timestamp()
         ])
-        
+
         if day_requests >= api_key_record.rate_limit_per_day:
             return False
-        
+
         # Add current request timestamp
         if key_hash not in self.request_counts:
             self.request_counts[key_hash] = []
         self.request_counts[key_hash].append(now.timestamp())
-        
+
         return True
 
 
@@ -135,12 +132,12 @@ def get_api_key_manager(db: Session = Depends(get_db)) -> APIKeyManager:
 
 # Dependency to authenticate via API key
 async def get_api_key_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     manager: APIKeyManager = Depends(get_api_key_manager)
 ) -> User:
     """
     Authenticate user via API key from Authorization header.
-    
+
     Expected format: Bearer <api_key>
     """
     if not credentials or not credentials.credentials:
@@ -149,17 +146,17 @@ async def get_api_key_user(
             detail="API key required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     api_key = credentials.credentials
     api_key_record = manager.verify_api_key(api_key)
-    
+
     if not api_key_record:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Check rate limits
     if not manager.check_rate_limit(api_key_record):
         raise HTTPException(
@@ -172,7 +169,7 @@ async def get_api_key_user(
                 ))),
             },
         )
-    
+
     return api_key_record.user
 
 
@@ -181,7 +178,7 @@ async def get_api_key_user(
 async def generate_api_key(
     name: str,
     description: str = None,
-    permissions: List[str] = [],
+    permissions: list[str] = None,
     rate_limit_per_hour: int = Query(default=1000, ge=1, le=10000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -189,28 +186,30 @@ async def generate_api_key(
     """
     Generate a new API key for the authenticated user.
     """
+    if permissions is None:
+        permissions = []
     manager = APIKeyManager(db)
-    
+
     # Check user's existing keys
     existing_keys = db.query(UserAPIKey).filter(
         UserAPIKey.user_id == current_user.id,
-        UserAPIKey.is_active == True
+        UserAPIKey.is_active
     ).count()
-    
+
     max_keys_per_user = 10
     if existing_keys >= max_keys_per_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Maximum {max_keys_per_user} API keys per user"
         )
-    
+
     # Generate new key
     api_key = manager.generate_api_key(
         user_id=current_user.id,
         name=name,
         description=description
     )
-    
+
     return {
         "message": "API key generated successfully",
         "api_key": api_key,  # Only return full key once
@@ -234,7 +233,7 @@ async def list_api_keys(
         .order_by(desc(UserAPIKey.created_at))
         .all()
     )
-    
+
     result = []
     for key in keys:
         result.append({
@@ -251,7 +250,7 @@ async def list_api_keys(
             "expires_at": key.expires_at.isoformat() if key.expires_at else None,
             "created_at": key.created_at.isoformat()
         })
-    
+
     return {"keys": result}
 
 
@@ -266,16 +265,16 @@ async def delete_api_key(
         UserAPIKey.id == key_id,
         UserAPIKey.user_id == current_user.id
     ).first()
-    
+
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found"
         )
-    
+
     db.delete(api_key)
     db.commit()
-    
+
     return {"message": "API key deleted successfully"}
 
 
@@ -292,33 +291,33 @@ async def get_editions(
 ):
     """
     Get list of newspaper editions.
-    
+
     Returns basic metadata only (no full content).
     """
     query = db.query(Edition)
-    
+
     # Add date filters
     if date_from:
         try:
             from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             query = query.filter(Edition.edition_date >= from_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_from format")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_from format") from e
+
     if date_to:
         try:
             to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             query = query.filter(Edition.edition_date <= to_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_to format")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_to format") from e
+
     # Add newspaper filter
     if newspaper:
         query = query.filter(Edition.newspaper_name.ilike(f"%{newspaper}%"))
-    
+
     # Order and paginate
     editions = query.order_by(desc(Edition.edition_date)).offset(offset).limit(limit).all()
-    
+
     result = []
     for edition in editions:
         result.append({
@@ -329,7 +328,7 @@ async def get_editions(
             "status": edition.status,
             "created_at": edition.created_at.isoformat()
         })
-    
+
     return {
         "editions": result,
         "total": len(editions),
@@ -350,27 +349,27 @@ async def get_edition_items(
 ):
     """
     Get items from a specific edition.
-    
+
     Returns full content for authorized API access.
     """
     # Verify edition exists
     edition = db.query(Edition).filter(Edition.id == edition_id).first()
     if not edition:
         raise HTTPException(status_code=404, detail="Edition not found")
-    
+
     # Build item query
     query = db.query(Item).filter(Item.edition_id == edition_id)
-    
+
     # Add type filters
     if item_type:
         query = query.filter(Item.item_type == item_type)
-    
+
     if subtype:
         query = query.filter(Item.subtype == subtype)
-    
+
     # Order and paginate
     items = query.order_by(Item.page_number, Item.id).offset(offset).limit(limit).all()
-    
+
     result = []
     for item in items:
         item_data = {
@@ -384,7 +383,7 @@ async def get_edition_items(
             "structured_data": item.structured_data,
             "created_at": item.created_at.isoformat()
         }
-        
+
         # Include legacy structured fields for backward compatibility
         if item.contact_info_json:
             item_data["contact_info"] = item.contact_info_json
@@ -396,9 +395,9 @@ async def get_edition_items(
             item_data["location_info"] = item.location_info_json
         if item.classification_details_json:
             item_data["classification_details"] = item.classification_details_json
-        
+
         result.append(item_data)
-    
+
     return {
         "edition_info": {
             "id": edition.id,
@@ -428,7 +427,7 @@ async def search_items(
 ):
     """
     Full-text search across all editions and items.
-    
+
     Searches through titles and text content.
     """
     # Get all items with their editions
@@ -437,32 +436,32 @@ async def search_items(
         .join(Edition, Item.edition_id == Edition.id)
         .filter(Item.text.ilike(f"%{q}%"))
     )
-    
+
     # Add type filters
     if item_type:
         items_query = items_query.filter(Item.item_type == item_type)
-    
+
     if subtype:
         items_query = items_query.filter(Item.subtype == subtype)
-    
+
     # Add date filters
     if date_from:
         try:
             from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             items_query = items_query.filter(Item.created_at >= from_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_from format")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_from format") from e
+
     if date_to:
         try:
             to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             items_query = items_query.filter(Item.created_at <= to_date)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_to format")
-    
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid date_to format") from e
+
     # Order and paginate
     items = items_query.order_by(desc(Item.created_at)).offset(offset).limit(limit).all()
-    
+
     result = []
     for item, edition in items:
         item_data = {
@@ -480,7 +479,7 @@ async def search_items(
             "structured_data": item.structured_data,
             "created_at": item.created_at.isoformat()
         }
-        
+
         # Include legacy structured fields for backward compatibility
         if item.contact_info_json:
             item_data["contact_info"] = item.contact_info_json
@@ -492,9 +491,9 @@ async def search_items(
             item_data["location_info"] = item.location_info_json
         if item.classification_details_json:
             item_data["classification_details"] = item.classification_details_json
-        
+
         result.append(item_data)
-    
+
     return {
         "query": q,
         "items": result,
@@ -515,12 +514,12 @@ async def get_api_stats(
     # Get user's API keys and usage
     api_keys = db.query(UserAPIKey).filter(
         UserAPIKey.user_id == api_user.id,
-        UserAPIKey.is_active == True
+        UserAPIKey.is_active
     ).all()
-    
+
     total_requests = sum(key.total_requests for key in api_keys)
     last_used = max((key.last_used_at for key in api_keys if key.last_used_at), default=None)
-    
+
     return {
         "user_id": api_user.id,
         "email": api_user.email,
@@ -531,7 +530,7 @@ async def get_api_stats(
             "version": "1.0.0",
             "endpoints": [
                 "GET /external/editions",
-                "GET /external/editions/{id}/items", 
+                "GET /external/editions/{id}/items",
                 "GET /external/search",
                 "GET /external/stats"
             ],

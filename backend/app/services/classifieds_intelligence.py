@@ -213,7 +213,7 @@ class ClassifiedsIntelligence:
             r'\b(Manager|Director|Officer|Executive|Supervisor|Coordinator|Specialist|Analyst|Developer|Engineer|Accountant|Consultant|Representative|Agent|Assistant)\b',
             r'\b(Senior|Junior|Lead|Chief|Head|Deputy|Assistant|Associate)\s+(Manager|Director|Officer|Executive|Supervisor|Coordinator|Specialist|Analyst|Developer|Engineer|Accountant|Consultant|Representative|Agent|Assistant)\b'
         ]
-        
+
         for pattern in job_title_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -227,7 +227,7 @@ class ClassifiedsIntelligence:
             r'\bat\s+([A-Z][a-zA-Z\s&]+)\b',
             r'(?:join|work\s+for)\s+([A-Z][a-zA-Z\s&]+)\b'
         ]
-        
+
         for pattern in employer_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -242,7 +242,7 @@ class ClassifiedsIntelligence:
             r'salary\s*[:#]?\s*([^\n,]+)',
             r'compensation\s*[:#]?\s*([^\n,]+)'
         ]
-        
+
         for pattern in salary_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -260,7 +260,7 @@ class ClassifiedsIntelligence:
                 else:
                     # Text salary description
                     details['salary_description'] = match.group(0).strip()
-                
+
                 # Extract currency
                 salary_text = match.group(0).upper()
                 if '$' in salary_text:
@@ -284,7 +284,7 @@ class ClassifiedsIntelligence:
             r'experience\s*[:#]?\s*(\d+)',
             r'(?:minimum|required)\s*(?:years?\s*of\s*)?experience\s*[:#]?\s*(\d+)'
         ]
-        
+
         for pattern in experience_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -304,13 +304,13 @@ class ClassifiedsIntelligence:
             r'\b(IT|Information Technology|Software|Banking|Finance|Healthcare|Education|Manufacturing|Retail|Hospitality|Construction|Agriculture|Government|NGO|Telecommunications|Media|Marketing|Sales|Logistics|Human Resources|Legal|Engineering|Accounting)\b',
             r'(?:sector|industry)\s*[:#]?\s*([^\n,]+)'
         ]
-        
+
         sectors = []
         for pattern in sector_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 sectors.append(match.strip())
-        
+
         if sectors:
             details['sector'] = list(set(sectors))
 
@@ -335,7 +335,7 @@ class ClassifiedsIntelligence:
             r'\b(Bachelor|Master|PhD|Doctorate|MBA|BSc|MSc|BA|MA|BCom|MCom|BEng|MEng|Diploma|Certificate)\s*(?:in|of)?\s*([^\n,]*)',
             r'\b(degree|qualification|education)\s*[:#]?\s*([^\n,]+)'
         ]
-        
+
         education = []
         for pattern in education_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
@@ -345,7 +345,7 @@ class ClassifiedsIntelligence:
                 else:
                     education_str = match.strip()
                 education.append(education_str)
-        
+
         if education:
             details['education_requirements'] = list(set(education))
 
@@ -354,7 +354,7 @@ class ClassifiedsIntelligence:
             r'(?:deadline|closing date|apply by|submit by|last date)\s*[:#]?\s*([^\n,]+)',
             r'(?:application\s*)?(?:deadline|closing)\s*(?:on|by|before)\s*([^\n,]+)'
         ]
-        
+
         for pattern in deadline_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -367,7 +367,7 @@ class ClassifiedsIntelligence:
             r'(?:location|workplace|office)\s*[:#]?\s*([^\n,]+)',
             r'\bat\s+([A-Z][a-zA-Z\s]+)\s*(?:office|branch)'
         ]
-        
+
         for pattern in location_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -418,7 +418,7 @@ class ClassifiedsIntelligence:
             r'reference\s*[:#]?\s*([A-Z0-9-/]+)',
             r'ref\.?\s*[:#]?\s*([A-Z0-9-/]+)'
         ]
-        
+
         for pattern in tender_ref_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -431,7 +431,7 @@ class ClassifiedsIntelligence:
             r'\b([A-Z][a-zA-Z\s&]{5,})\b(?:\s+is\s+(?:inviting|calling|requesting))',
             r'(?:inviting|calling|requesting)\s+(?:bids|proposals|applications)\s+from\s+([^,\n]+)'
         ]
-        
+
         for pattern in issuer_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -444,7 +444,7 @@ class ClassifiedsIntelligence:
             r're\s*:\s*([^\n]+)',
             r'subject\s*:\s*([^\n]+)'
         ]
-        
+
         for pattern in title_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -456,13 +456,13 @@ class ClassifiedsIntelligence:
             r'(?:category|sector|industry|field)\s*[:#]?\s*([^\n,]+)',
             r'\b(supplies|services|construction|works|consultancy|training|maintenance|repair|IT|software|hardware|furniture|vehicles|equipment)\b'
         ]
-        
+
         categories = []
         for pattern in category_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 categories.append(match.strip())
-        
+
         if categories:
             details['category'] = list(set(categories))
 
@@ -473,17 +473,17 @@ class ClassifiedsIntelligence:
             r'(?:estimated\s*)?(?:value|cost|price|budget|contract\s*value)\s*[:#]?\s*([^\n,]+)',
             r'(?:budget|price|cost)\s*[:#]?\s*([^\n,]+)'
         ]
-        
+
         for pattern in value_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 value_text = match.group(0) if not match.groups() else match.group(1)
-                
+
                 # Extract numeric value
                 numeric_match = re.search(r'([\d,]+(?:\.\d{2})?)', value_text)
                 if numeric_match:
                     value = float(numeric_match.group(1).replace(',', ''))
-                    
+
                     # Handle multipliers
                     if 'million' in value_text.lower():
                         value *= 1000000
@@ -491,9 +491,9 @@ class ClassifiedsIntelligence:
                         value *= 1000000000
                     elif 'thousand' in value_text.lower():
                         value *= 1000
-                    
+
                     details['estimated_value'] = value
-                    
+
                     # Extract currency
                     if '$' in value_text or 'USD' in value_text.upper():
                         details['currency'] = 'USD'
@@ -515,7 +515,7 @@ class ClassifiedsIntelligence:
             r'(?:submit|send|deliver)\s*(?:bids|proposals|documents)\s*(?:by|before|on)\s*([^\n,]+)',
             r'closes?\s*(?:on|at)\s*([^\n,]+)'
         ]
-        
+
         for pattern in deadline_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -528,13 +528,13 @@ class ClassifiedsIntelligence:
             r'(?:must\s*have|required|should\s*be)\s+([^,\n]+)',
             r'(?:bidder|applicant)\s*(?:must|should)\s+([^,\n]+)'
         ]
-        
+
         eligibility = []
         for pattern in eligibility_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 eligibility.append(match.strip())
-        
+
         if eligibility:
             details['eligibility'] = eligibility
 
@@ -545,13 +545,13 @@ class ClassifiedsIntelligence:
             r'(?:person|officer)\s*[:#]?\s*([^\n,]+)',
             r'(?:email|phone|tel|mobile)\s*[:#]?\s*([^\n,]+)'
         ]
-        
+
         contact_info = []
         for pattern in contact_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 contact_info.append(match.strip())
-        
+
         if contact_info:
             details['contact'] = contact_info
 

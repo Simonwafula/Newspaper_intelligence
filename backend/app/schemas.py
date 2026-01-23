@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -109,6 +110,7 @@ class GlobalSearchResult(BaseModel):
     edition_date: datetime
     item_type: ItemType
     subtype: ItemSubtype | None = None
+    categories: list["ItemCategoryResponse"] | None = None
 
 
 class SavedSearchCreate(BaseModel):
@@ -329,7 +331,7 @@ class ItemCategoryResponse(BaseModel):
     notes: str | None = None
     created_at: datetime
     updated_at: datetime
-    
+
     # Include category details
     category: CategoryResponse
 
@@ -365,3 +367,94 @@ class BatchClassificationResponse(BaseModel):
     total_classifications: int
     failed_items: list[int] = Field(default_factory=list)
     processing_time: float  # in seconds
+
+
+# Favorite Schemas
+class FavoriteCreate(BaseModel):
+    item_id: int
+    notes: str | None = None
+
+
+class FavoriteResponse(BaseModel):
+    id: int
+    user_id: int
+    item_id: int
+    notes: str | None = None
+    created_at: datetime
+
+    # Optional nested Item (if requested)
+    item: ItemResponse | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# Collection Schemas
+class CollectionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    color: str = Field(default="#3B82F6", pattern=r"^#[0-9A-Fa-f]{6}$")
+    is_public: bool = False
+
+
+class CollectionUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    is_public: bool | None = None
+
+
+class CollectionResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    description: str | None = None
+    color: str
+    is_public: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CollectionItemCreate(BaseModel):
+    item_id: int
+    notes: str | None = None
+
+
+class CollectionItemResponse(BaseModel):
+    id: int
+    collection_id: int
+    item_id: int
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    # Nested item details
+    item: ItemResponse | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class CollectionWithItemsResponse(CollectionResponse):
+    items: list[CollectionItemResponse] = Field(default_factory=list)
+
+
+# Analytics/Trends Schemas
+class TopicTrend(BaseModel):
+    category_name: str
+    date: datetime
+    count: int
+
+
+class VolumeTrend(BaseModel):
+    date: datetime
+    count: int
+
+
+class TrendDashboardResponse(BaseModel):
+    topic_trends: list[TopicTrend]
+    volume_trends: list[VolumeTrend]
+    top_categories: list[dict[str, Any]]  # name, count

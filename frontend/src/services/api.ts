@@ -1,8 +1,10 @@
 import axios, { AxiosError } from 'axios';
-import { 
+import {
   Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype,
-  Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate, 
-  ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats
+  Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate,
+  ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats,
+  Favorite, FavoriteCreate, Collection, CollectionCreate, CollectionUpdate, CollectionItem, CollectionItemCreate,
+  CollectionWithItems, TrendDashboardResponse
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
@@ -317,6 +319,80 @@ export const categoriesApi = {
     const response = await api.post(
       `/api/categories/suggest?text=${encodeURIComponent(text)}&limit=${limit}&confidence_threshold=${confidenceThreshold}`
     );
+    return response.data;
+  },
+};
+
+export const favoritesApi = {
+  // List all favorites
+  getFavorites: async (skip = 0, limit = 50, includeItems = true): Promise<Favorite[]> => {
+    const response = await api.get(`/api/favorites/?skip=${skip}&limit=${limit}&include_items=${includeItems}`);
+    return response.data;
+  },
+
+  // Add to favorites
+  addFavorite: async (favorite: FavoriteCreate): Promise<Favorite> => {
+    const response = await api.post('/api/favorites/', favorite);
+    return response.data;
+  },
+
+  // Remove favorite by ID
+  removeFavorite: async (id: number): Promise<void> => {
+    await api.delete(`/api/favorites/${id}`);
+  },
+
+  // Remove favorite by item ID
+  removeFavoriteByItem: async (itemId: number): Promise<void> => {
+    await api.delete(`/api/favorites/item/${itemId}`);
+  },
+};
+
+export const collectionsApi = {
+  // List all collections
+  getCollections: async (): Promise<Collection[]> => {
+    const response = await api.get('/api/collections/');
+    return response.data;
+  },
+
+  // Create new collection
+  createCollection: async (collection: CollectionCreate): Promise<Collection> => {
+    const response = await api.post('/api/collections/', collection);
+    return response.data;
+  },
+
+  // Get collection with items
+  getCollection: async (id: number): Promise<CollectionWithItems> => {
+    const response = await api.get(`/api/collections/${id}`);
+    return response.data;
+  },
+
+  // Update collection
+  updateCollection: async (id: number, collection: CollectionUpdate): Promise<Collection> => {
+    const response = await api.put(`/api/collections/${id}`, collection);
+    return response.data;
+  },
+
+  // Delete collection
+  deleteCollection: async (id: number): Promise<void> => {
+    await api.delete(`/api/collections/${id}`);
+  },
+
+  // Add item to collection
+  addItemToCollection: async (collectionId: number, item: CollectionItemCreate): Promise<CollectionItem> => {
+    const response = await api.post(`/api/collections/${collectionId}/items`, item);
+    return response.data;
+  },
+
+  // Remove item from collection
+  removeItemFromCollection: async (collectionId: number, itemId: number): Promise<void> => {
+    await api.delete(`/api/collections/${collectionId}/items/${itemId}`);
+  },
+};
+
+export const analyticsApi = {
+  // Get trend data
+  getTrends: async (days = 30): Promise<TrendDashboardResponse> => {
+    const response = await api.get(`/api/analytics/trends?days=${days}`);
     return response.data;
   },
 };

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Edition, ExtractionRun, Item, Page, ItemCategory
+from app.models import Edition, ExtractionRun, Item, Page
 from app.schemas import EditionStatus
 from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
@@ -228,16 +228,16 @@ class ProcessingService:
                 logger.info("Running category classification...")
                 category_classifier = CategoryClassifier(db)
                 all_items = db.query(Item).filter(Item.edition_id == edition_id).all()
-                
+
                 if all_items:
                     classification_results = category_classifier.batch_classify_items(
                         all_items, confidence_threshold=30, clear_existing=True
                     )
                     classified_count = len(classification_results)
                     total_classifications = sum(len(classifications) for classifications in classification_results.values())
-                    
+
                     logger.info(f"Classified {classified_count} items with {total_classifications} total classifications")
-                    
+
                     # Update stats with classification info
                     stats.update({
                         'items_classified': classified_count,

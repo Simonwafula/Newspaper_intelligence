@@ -192,3 +192,81 @@ export interface AuthResponse {
   expires_in: number;
   user_role: UserRole;
 }
+
+// Favorite types
+export interface Favorite {
+  id: number;
+  user_id: number;
+  item_id: number;
+  notes?: string;
+  created_at: string;
+  item?: Item;
+}
+
+export interface FavoriteCreate {
+  item_id: number;
+  notes?: string;
+}
+
+// Collection types
+export interface Collection {
+  id: number;
+  user_id: number;
+  name: string;
+  description?: string;
+  color: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionCreate {
+  name: string;
+  description?: string;
+  color?: string;
+  is_public?: boolean;
+}
+
+export interface CollectionUpdate {
+  name?: string;
+  description?: string;
+  color?: string;
+  is_public?: boolean;
+}
+
+export interface CollectionItem {
+  id: number;
+  collection_id: number;
+  item_id: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  item?: Item;
+}
+
+export interface CollectionItemCreate {
+  item_id: number;
+  notes?: string;
+}
+
+export interface CollectionWithItems extends Collection {
+  items: CollectionItem[];
+}
+
+// Analytics types
+export interface TopicTrend {
+  category_name: string;
+  date: string;
+  count: number;
+}
+
+export interface VolumeTrend {
+  date: string;
+  count: number;
+}
+
+export interface TrendDashboardResponse {
+  topic_trends: TopicTrend[];
+  volume_trends: VolumeTrend[];
+  top_categories: { name: string; count: number }[];
+}

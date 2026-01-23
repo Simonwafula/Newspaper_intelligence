@@ -27,6 +27,9 @@ export function AuthenticatedHeader() {
     { path: '/app/editions', label: 'Editions' },
     { path: '/app/search', label: 'Search' },
     { path: '/app/global-search', label: 'Global Search' },
+    { path: '/app/favorites', label: 'Favorites' },
+    { path: '/app/collections', label: 'Collections' },
+    { path: '/app/trends', label: 'Trends' },
     { path: '/app/saved-searches', label: 'Saved Searches' },
   ];
 

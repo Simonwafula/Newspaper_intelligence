@@ -7,13 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import (
     create_access_token,
-    get_password_hash,
     get_current_active_user,
     verify_password,
 )
 from app.db.database import get_db
 from app.models import User
-from app.schemas import Token, UserCreate, UserResponse, UserLogin, UserRole
+from app.schemas import Token, UserResponse
 from app.settings import settings
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -44,33 +43,33 @@ async def login_user(
     """Authenticate user and return JWT token."""
     # Find user by email (username field in OAuth2PasswordRequestForm)
     user = db.query(User).filter(User.email == form_data.username).first()
-    
+
     if not user or not verify_password(form_data.password, str(user.hashed_password)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not bool(user.is_active):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account is disabled",
         )
-    
+
     # Create access token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email, "role": user.role},
         expires_delta=access_token_expires
     )
-    
+
     # Update last login
     db.query(User).filter(User.id == user.id).update({"last_login": datetime.utcnow()})
     db.commit()
-    
+
     return {
-        "access_token": access_token, 
+        "access_token": access_token,
         "token_type": "bearer",
         "expires_in": settings.access_token_expire_minutes * 60
     }
@@ -105,8 +104,8 @@ async def verify_email(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already verified"
         )
-    
+
     db.query(User).filter(User.id == current_user.id).update({"is_verified": True})
     db.commit()
-    
+
     return {"message": "Email verified successfully"}

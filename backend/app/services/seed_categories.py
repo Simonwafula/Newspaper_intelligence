@@ -3,13 +3,14 @@ Seed categories utility script.
 Populates the database with predefined topic categories.
 """
 
-import sys
 import os
+import sys
 
 # Add the backend directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
+
 from app.db.database import SessionLocal
 from app.models import Category
 
@@ -169,20 +170,20 @@ DEFAULT_CATEGORIES = [
 def seed_categories(db: Session) -> int:
     """Seed the database with default categories."""
     created_count = 0
-    
+
     for cat_data in DEFAULT_CATEGORIES:
         # Check if category already exists
         existing = db.query(Category).filter(Category.slug == cat_data["slug"]).first()
         if existing:
             print(f"Category '{cat_data['name']}' already exists, skipping...")
             continue
-        
+
         # Create new category
         category = Category(**cat_data)
         db.add(category)
         created_count += 1
         print(f"Created category: {cat_data['name']}")
-    
+
     try:
         db.commit()
         print(f"\nSuccessfully created {created_count} categories.")
@@ -196,7 +197,7 @@ def seed_categories(db: Session) -> int:
 def main():
     """Main function to run the seeding process."""
     print("Seeding default categories...")
-    
+
     db = SessionLocal()
     try:
         count = seed_categories(db)

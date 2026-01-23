@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_admin_user
 from app.db.database import get_db
 from app.models import Edition, Item
-from app.schemas import ItemSubtype, ItemType
+from app.schemas import ItemType
 
 router = APIRouter()
 
@@ -116,6 +116,7 @@ def format_classifieds_row(item: Item) -> list[str]:
 async def export_edition_items_csv(
     edition_id: int,
     item_type: str,
+    subtype: str | None = None,
     db: Session = Depends(get_db),
     _user_auth=Depends(get_admin_user)
 ):

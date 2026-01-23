@@ -14,6 +14,10 @@ import GlobalSearch from './pages/GlobalSearch';
 import SavedSearches from './pages/SavedSearches';
 import CategoriesPage from './pages/CategoriesPage';
 import Admin from './pages/Admin';
+import FavoritesPage from './pages/FavoritesPage';
+import CollectionsPage from './pages/CollectionsPage';
+import CollectionDetailPage from './pages/CollectionDetailPage';
+import TrendsDashboard from './pages/TrendsDashboard';
 import ErrorPage from './pages/ErrorPage';
 
 const queryClient = new QueryClient({
@@ -69,6 +73,10 @@ function App() {
             <Route path="global-search" element={<GlobalSearch />} />
             <Route path="saved-searches" element={<SavedSearches />} />
             <Route path="categories" element={<ProtectedRoute requireAdmin><CategoriesPage /></ProtectedRoute>} />
+            <Route path="favorites" element={<FavoritesPage />} />
+            <Route path="collections" element={<CollectionsPage />} />
+            <Route path="collections/:id" element={<CollectionDetailPage />} />
+            <Route path="trends" element={<TrendsDashboard />} />
             <Route path="admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
           </Route>
 
@@ -78,6 +86,9 @@ function App() {
           <Route path="/global-search" element={<Navigate to="/app/global-search" replace />} />
           <Route path="/saved-searches" element={<Navigate to="/app/saved-searches" replace />} />
           <Route path="/categories" element={<Navigate to="/app/categories" replace />} />
+          <Route path="/favorites" element={<Navigate to="/app/favorites" replace />} />
+          <Route path="/collections" element={<Navigate to="/app/collections" replace />} />
+          <Route path="/trends" element={<Navigate to="/app/trends" replace />} />
           <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
 
           <Route path="*" element={<ErrorPage />} />

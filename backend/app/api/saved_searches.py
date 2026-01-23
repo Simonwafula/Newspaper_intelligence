@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_reader_user, get_admin_user
+from app.api.auth import get_admin_user, get_reader_user
 from app.db.database import get_db
 from app.schemas import SavedSearchCreate, SavedSearchResponse
 from app.services.saved_search_service import SavedSearchService
@@ -43,7 +43,7 @@ def list_saved_searches(
 
 @router.get("/saved-searches/{search_id}", response_model=SavedSearchResponse)
 def get_saved_search(
-    search_id: int, 
+    search_id: int,
     db: Session = Depends(get_db),
     _user = Depends(get_reader_user)
 ) -> Any:

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { editionsApi, itemsApi } from '../services/api';
-import { Item, ItemType } from '../types';
+import { editionsApi, itemsApi, favoritesApi, collectionsApi } from '../services/api';
+import { Item, ItemType, Collection } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
@@ -17,6 +17,10 @@ const EditionDetail = () => {
     item_type?: ItemType;
     subtype?: string;
   }>({ item_type: 'STORY' });
+
+  const [userFavorites, setUserFavorites] = useState<number[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [showCollectionMenu, setShowCollectionMenu] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -37,6 +41,50 @@ const EditionDetail = () => {
     queryFn: () => itemsApi.getEditionItems(editionId, itemFilter),
     enabled: !!edition,
   });
+
+  useEffect(() => {
+    if (edition) {
+      loadUserData();
+    }
+  }, [edition]);
+
+  const loadUserData = async () => {
+    try {
+      const [favs, colls] = await Promise.all([
+        favoritesApi.getFavorites(0, 100, false),
+        collectionsApi.getCollections()
+      ]);
+      setUserFavorites(favs.map(f => f.item_id));
+      setCollections(colls);
+    } catch (err) {
+      console.error('Failed to load user data', err);
+    }
+  };
+
+  const toggleFavorite = async (itemId: number) => {
+    const isFavorited = userFavorites.includes(itemId);
+    try {
+      if (isFavorited) {
+        await favoritesApi.removeFavoriteByItem(itemId);
+        setUserFavorites(userFavorites.filter(id => id !== itemId));
+      } else {
+        await favoritesApi.addFavorite({ item_id: itemId });
+        setUserFavorites([...userFavorites, itemId]);
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite', err);
+    }
+  };
+
+  const addItemToCollection = async (collectionId: number, itemId: number) => {
+    try {
+      await collectionsApi.addItemToCollection(collectionId, { item_id: itemId });
+      setShowCollectionMenu(null);
+      alert('Added to collection');
+    } catch (err) {
+      console.error('Failed to add to collection', err);
+    }
+  };
 
   const processMutation = useMutation({
     mutationFn: () => editionsApi.processEdition(editionId),
@@ -158,7 +206,7 @@ const EditionDetail = () => {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-600">
                 <span>Edition: {formatDate(edition.edition_date)}</span>
                 <span>{edition.num_pages} pages</span>
-                <StatusBadge status={edition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'} />
+                <StatusBadge status={edition.status as any} />
               </div>
             </div>
 
@@ -236,50 +284,6 @@ const EditionDetail = () => {
               )}
             </div>
           )}
-
-          {/* Processing History */}
-          {processingStatus && processingStatus.extraction_runs.length > 0 && (
-            <div className="mt-6">
-              <h4 className="text-sm font-semibold text-ink-800 mb-3">Processing History</h4>
-              <div className="space-y-3">
-                {processingStatus.extraction_runs.map((run) => (
-                  <div
-                    key={run.id}
-                    className={`p-3 rounded-lg border ${
-                      run.success
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-red-50 border-red-200'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-medium">
-                        Run #{run.id} (v{run.version})
-                      </span>
-                      <span
-                        className={`text-xs font-medium ${
-                          run.success ? 'text-green-700' : 'text-red-700'
-                        }`}
-                      >
-                        {run.success ? 'Success' : 'Failed'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-stone-600">
-                      Started: {new Date(run.started_at).toLocaleString()}
-                      {run.finished_at && (
-                        <> &bull; Finished: {new Date(run.finished_at).toLocaleString()}</>
-                      )}
-                      {!run.finished_at && <> &bull; Still running...</>}
-                    </div>
-                    {run.stats && (
-                      <pre className="mt-2 p-2 bg-white/50 rounded text-xs font-mono overflow-x-auto">
-                        {JSON.stringify(run.stats, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </Card>
 
@@ -315,7 +319,7 @@ const EditionDetail = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {items.map((item: Item) => (
+                {items.map((item: any) => (
                   <div
                     key={item.id}
                     className="p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
@@ -331,25 +335,72 @@ const EditionDetail = () => {
                         )}
                       </div>
                     </div>
-                     <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
-                     
-                     {item.categories && item.categories.length > 0 && (
-                       <div className="mb-2">
-                         <CategoryList 
-                           categories={item.categories} 
-                           showConfidence={true}
-                           maxDisplay={5}
-                           size="sm"
-                         />
-                       </div>
-                     )}
-                     
-                     {item.text && (
-                       <p className="text-sm text-stone-600 leading-relaxed">
-                         {item.text.substring(0, 300)}
-                         {item.text.length > 300 && '...'}
-                       </p>
-                     )}
+                    <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
+
+                    {item.categories && item.categories.length > 0 && (
+                      <div className="mb-2">
+                        <CategoryList
+                          categories={item.categories}
+                          showConfidence={true}
+                          maxDisplay={5}
+                          size="sm"
+                        />
+                      </div>
+                    )}
+
+                    {item.text && (
+                      <p className="text-sm text-stone-600 leading-relaxed">
+                        {item.text.substring(0, 300)}
+                        {item.text.length > 300 && '...'}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-end space-x-3">
+                      <button
+                        onClick={() => toggleFavorite(item.id)}
+                        className={`p-1.5 rounded-full transition-colors ${userFavorites.includes(item.id)
+                            ? 'text-red-500 hover:bg-red-50'
+                            : 'text-gray-400 hover:bg-gray-100'
+                          }`}
+                        title={userFavorites.includes(item.id) ? "Remove from Favorites" : "Add to Favorites"}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={userFavorites.includes(item.id) ? "currentColor" : "none"} stroke="currentColor">
+                          <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowCollectionMenu(showCollectionMenu === item.id ? null : item.id)}
+                          className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"
+                          title="Add to Collection"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+
+                        {showCollectionMenu === item.id && (
+                          <div className="absolute right-0 bottom-full mb-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-10 py-1 overflow-hidden">
+                            <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase bg-gray-50 border-b border-gray-100">Add to Collection</div>
+                            {collections.length === 0 ? (
+                              <Link to="/app/collections" className="block px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">Create first collection</Link>
+                            ) : (
+                              collections.map(col => (
+                                <button
+                                  key={col.id}
+                                  onClick={() => addItemToCollection(col.id, item.id)}
+                                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors truncate"
+                                  style={{ borderLeft: `3px solid ${col.color}` }}
+                                >
+                                  {col.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

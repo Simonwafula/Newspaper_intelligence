@@ -5,10 +5,19 @@ import os
 from datetime import datetime
 
 import fitz  # PyMuPDF
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_reader_user, get_admin_user
+from app.api.auth import get_admin_user, get_reader_user
 from app.db.database import SessionLocal, get_db
 from app.models import Edition
 from app.schemas import EditionResponse, EditionStatus
@@ -291,7 +300,7 @@ async def list_editions(
 
 @router.get("/{edition_id}", response_model=EditionResponse)
 async def get_edition(
-    edition_id: int, 
+    edition_id: int,
     db: Session = Depends(get_db),
     _user = Depends(get_reader_user)
 ):

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { searchApi } from '../services/api';
-import { SearchResult, ItemType, ItemSubtype } from '../types';
+import { searchApi, favoritesApi } from '../services/api';
+import { SearchResult, ItemType, ItemSubtype, Favorite } from '../types';
 import { PageContainer, PageHeader } from '../components/layout';
 import { Button, Input, Card, Loading } from '../components/ui';
 
@@ -16,6 +16,7 @@ const Search = () => {
     newspaper_name: '',
     page_number: '',
   });
+  const [userFavorites, setUserFavorites] = useState<number[]>([]);
 
   const { data: results, isLoading, error, refetch } = useQuery({
     queryKey: ['search', query, searchScope, editionId, filters],
@@ -41,6 +42,31 @@ const Search = () => {
     e.preventDefault();
     if (query.trim()) {
       refetch();
+      loadUserFavorites();
+    }
+  };
+
+  const loadUserFavorites = async () => {
+    try {
+      const favs = await favoritesApi.getFavorites(0, 100, false);
+      setUserFavorites(favs.map(f => f.item_id));
+    } catch (err) {
+      console.error('Failed to load favorites', err);
+    }
+  };
+
+  const toggleFavorite = async (itemId: number) => {
+    const isFavorited = userFavorites.includes(itemId);
+    try {
+      if (isFavorited) {
+        await favoritesApi.removeFavoriteByItem(itemId);
+        setUserFavorites(userFavorites.filter(id => id !== itemId));
+      } else {
+        await favoritesApi.addFavorite({ item_id: itemId });
+        setUserFavorites([...userFavorites, itemId]);
+      }
+    } catch (err) {
+      console.error('Failed to toggle favorite', err);
     }
   };
 
@@ -220,8 +246,22 @@ const Search = () => {
                     {highlightText(result.snippet, result.highlights)}
                   </p>
 
-                  <div className="text-sm text-stone-500">
-                    Page {result.page_number}
+                  <div className="text-sm text-stone-500 flex justify-between items-center">
+                    <span>Page {result.page_number}</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleFavorite(result.item_id);
+                      }}
+                      className={`p-1 rounded-full transition-colors ${userFavorites.includes(result.item_id)
+                          ? 'text-red-500 hover:bg-red-50'
+                          : 'text-gray-400 hover:bg-gray-100'
+                        }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={userFavorites.includes(result.item_id) ? "currentColor" : "none"} stroke="currentColor">
+                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 </Card>
               ))}
