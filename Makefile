@@ -129,11 +129,11 @@ ci: lint test build
 db-upgrade:
 	@echo "Running database migrations..."
 	@echo "Using Database: $${DATABASE_URL:-Defaulting to SQLite (from app settings)}"
-	@cd backend && PYTHONPATH=$$PWD alembic upgrade head
+	@cd backend && PYTHONPATH=$$PWD python -m alembic upgrade head
 
 db-create:
 	@echo "Creating new database migration..."
-	@cd backend && PYTHONPATH=$$PWD alembic revision --autogenerate -m "$(MSG)"
+	@cd backend && PYTHONPATH=$$PWD python -m alembic revision --autogenerate -m "$(MSG)"
 
 # Seeding commands
 seed-admin:
