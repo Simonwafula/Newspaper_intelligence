@@ -1,5 +1,9 @@
 import axios, { AxiosError } from 'axios';
-import { Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype } from '../types';
+import { 
+  Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype,
+  Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate, 
+  ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats
+} from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
 
@@ -225,6 +229,94 @@ export const savedSearchesApi = {
   // Update all search matches
   updateAllSearchMatches: async (): Promise<{ message: string; updated: number; failed: number }> => {
     const response = await api.post('/api/saved-searches/update-all-matches', {});
+    return response.data;
+  },
+};
+
+export const categoriesApi = {
+  // List all categories
+  getCategories: async (skip = 0, limit = 100, activeOnly = true): Promise<Category[]> => {
+    const response = await api.get(`/api/categories/?skip=${skip}&limit=${limit}&active_only=${activeOnly}`);
+    return response.data;
+  },
+
+  // Get category by ID
+  getCategory: async (id: number): Promise<CategoryWithStats> => {
+    const response = await api.get(`/api/categories/${id}`);
+    return response.data;
+  },
+
+  // Get category by slug
+  getCategoryBySlug: async (slug: string): Promise<CategoryWithStats> => {
+    const response = await api.get(`/api/categories/slug/${slug}`);
+    return response.data;
+  },
+
+  // Create new category (admin only)
+  createCategory: async (category: CategoryCreate): Promise<Category> => {
+    const response = await api.post('/api/categories/', category);
+    return response.data;
+  },
+
+  // Update category (admin only)
+  updateCategory: async (id: number, category: CategoryUpdate): Promise<Category> => {
+    const response = await api.put(`/api/categories/${id}`, category);
+    return response.data;
+  },
+
+  // Delete category (admin only)
+  deleteCategory: async (id: number): Promise<void> => {
+    await api.delete(`/api/categories/${id}`);
+  },
+
+  // Get items in category
+  getItemsInCategory: async (
+    categoryId: number,
+    skip = 0,
+    limit = 50,
+    minConfidence = 0
+  ): Promise<ItemWithCategories[]> => {
+    const response = await api.get(
+      `/api/categories/${categoryId}/items?skip=${skip}&limit=${limit}&min_confidence=${minConfidence}`
+    );
+    return response.data;
+  },
+
+  // Add category to item (admin only)
+  addItemCategory: async (
+    itemId: number,
+    classification: ItemCategoryCreate
+  ): Promise<ItemCategoryResponse> => {
+    const response = await api.post(`/api/categories/items/${itemId}/categories`, classification);
+    return response.data;
+  },
+
+  // Remove category from item (admin only)
+  removeItemCategory: async (itemId: number, categoryId: number): Promise<void> => {
+    await api.delete(`/api/categories/items/${itemId}/categories/${categoryId}`);
+  },
+
+  // Batch classify items (admin only)
+  batchClassifyItems: async (request: BatchClassificationRequest): Promise<BatchClassificationResponse> => {
+    const response = await api.post('/api/categories/batch-classify', request);
+    return response.data;
+  },
+
+  // Reclassify all items (admin only)
+  reclassifyAllItems: async (confidenceThreshold = 30): Promise<ClassificationStats> => {
+    const response = await api.post(`/api/categories/reclassify-all?confidence_threshold=${confidenceThreshold}`);
+    return response.data;
+  },
+
+  // Get category suggestions for text
+  getCategorySuggestions: async (
+    text: string,
+    limit = 5,
+    confidenceThreshold = 30
+  ): Promise<Category[]> => {
+    const response = await api.post(
+      `/api/categories/suggest?text=${encodeURIComponent(text)}&limit=${limit}&confidence_threshold=${confidenceThreshold}`
+    );
     return response.data;
   },
 };

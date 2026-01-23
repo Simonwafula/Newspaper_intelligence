@@ -5,6 +5,7 @@ import { editionsApi, itemsApi } from '../services/api';
 import { Item, ItemType } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
+import { CategoryList } from '../components/CategoryBadge';
 
 type TabType = 'stories' | 'ads' | 'classifieds';
 
@@ -330,13 +331,25 @@ const EditionDetail = () => {
                         )}
                       </div>
                     </div>
-                    <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
-                    {item.text && (
-                      <p className="text-sm text-stone-600 leading-relaxed">
-                        {item.text.substring(0, 300)}
-                        {item.text.length > 300 && '...'}
-                      </p>
-                    )}
+                     <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
+                     
+                     {item.categories && item.categories.length > 0 && (
+                       <div className="mb-2">
+                         <CategoryList 
+                           categories={item.categories} 
+                           showConfidence={true}
+                           maxDisplay={5}
+                           size="sm"
+                         />
+                       </div>
+                     )}
+                     
+                     {item.text && (
+                       <p className="text-sm text-stone-600 leading-relaxed">
+                         {item.text.substring(0, 300)}
+                         {item.text.length > 300 && '...'}
+                       </p>
+                     )}
                   </div>
                 ))}
               </div>

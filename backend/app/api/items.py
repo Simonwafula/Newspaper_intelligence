@@ -4,13 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_reader_user
 from app.db.database import get_db
-from app.models import Edition, Item
-from app.schemas import ItemResponse, ItemSubtype, ItemType
+from app.models import Edition, Item, Category, ItemCategory
+from app.schemas import ItemWithCategoriesResponse, ItemResponse, ItemSubtype, ItemType
 
 router = APIRouter()
 
 
-@router.get("/edition/{edition_id}/items", response_model=list[ItemResponse])
+@router.get("/edition/{edition_id}/items", response_model=list[ItemWithCategoriesResponse])
 async def get_edition_items(
     edition_id: int,
     item_type: ItemType | None = Query(None, description="Filter by item type"),
@@ -42,10 +42,41 @@ async def get_edition_items(
         query = query.filter(Item.page_number == page_number)
 
     items = query.offset(skip).limit(limit).all()
-    return items
+    
+    # Load categories for each item
+    result = []
+    for item in items:
+        categories = (
+            db.query(ItemCategory, Category)
+            .join(Category)
+            .filter(ItemCategory.item_id == item.id)
+            .all()
+        )
+        
+        item_categories = []
+        for item_cat, cat in categories:
+            from app.schemas import CategoryResponse
+            item_categories.append({
+                "id": item_cat.id,
+                "item_id": item_cat.item_id,
+                "category_id": item_cat.category_id,
+                "confidence": item_cat.confidence,
+                "source": item_cat.source,
+                "notes": item_cat.notes,
+                "created_at": item_cat.created_at,
+                "updated_at": item_cat.updated_at,
+                "category": CategoryResponse.model_validate(cat)
+            })
+        
+        result.append({
+            **item.__dict__,
+            "categories": item_categories
+        })
+    
+    return result
 
 
-@router.get("/item/{item_id}", response_model=ItemResponse)
+@router.get("/item/{item_id}", response_model=ItemWithCategoriesResponse)
 async def get_item(
     item_id: int, 
     db: Session = Depends(get_db),
@@ -57,4 +88,31 @@ async def get_item(
     item = db.query(Item).filter(Item.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    return item
+    
+    # Load categories for the item
+    categories = (
+        db.query(ItemCategory, Category)
+        .join(Category)
+        .filter(ItemCategory.item_id == item.id)
+        .all()
+    )
+    
+    item_categories = []
+    for item_cat, cat in categories:
+        from app.schemas import CategoryResponse
+        item_categories.append({
+            "id": item_cat.id,
+            "item_id": item_cat.item_id,
+            "category_id": item_cat.category_id,
+            "confidence": item_cat.confidence,
+            "source": item_cat.source,
+            "notes": item_cat.notes,
+            "created_at": item_cat.created_at,
+            "updated_at": item_cat.updated_at,
+            "category": CategoryResponse.model_validate(cat)
+        })
+    
+    return {
+        **item.__dict__,
+        "categories": item_categories
+    }

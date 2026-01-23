@@ -12,6 +12,7 @@ import EditionDetail from './pages/EditionDetail';
 import Search from './pages/Search';
 import GlobalSearch from './pages/GlobalSearch';
 import SavedSearches from './pages/SavedSearches';
+import CategoriesPage from './pages/CategoriesPage';
 import Admin from './pages/Admin';
 import ErrorPage from './pages/ErrorPage';
 
@@ -67,6 +68,7 @@ function App() {
             <Route path="search" element={<Search />} />
             <Route path="global-search" element={<GlobalSearch />} />
             <Route path="saved-searches" element={<SavedSearches />} />
+            <Route path="categories" element={<ProtectedRoute requireAdmin><CategoriesPage /></ProtectedRoute>} />
             <Route path="admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
           </Route>
 
@@ -75,6 +77,7 @@ function App() {
           <Route path="/search" element={<Navigate to="/app/search" replace />} />
           <Route path="/global-search" element={<Navigate to="/app/global-search" replace />} />
           <Route path="/saved-searches" element={<Navigate to="/app/saved-searches" replace />} />
+          <Route path="/categories" element={<Navigate to="/app/categories" replace />} />
           <Route path="/admin" element={<Navigate to="/app/admin" replace />} />
 
           <Route path="*" element={<ErrorPage />} />

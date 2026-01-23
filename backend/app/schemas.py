@@ -85,6 +85,11 @@ class ItemResponse(BaseModel):
         from_attributes = True
 
 
+class ItemWithCategoriesResponse(ItemResponse):
+    """Item response with categories included."""
+    categories: list["ItemCategoryResponse"] = Field(default_factory=list)
+
+
 class SearchResult(BaseModel):
     item_id: int
     title: str | None = None

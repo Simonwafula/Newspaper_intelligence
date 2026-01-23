@@ -31,6 +31,7 @@ export function AuthenticatedHeader() {
   ];
 
   const adminNavItems: NavItem[] = [
+    { path: '/app/categories', label: 'Categories', requireAdmin: true },
     { path: '/app/admin', label: 'Admin', requireAdmin: true },
   ];
 

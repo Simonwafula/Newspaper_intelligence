@@ -28,6 +28,7 @@ export interface Item {
   bbox_json?: Record<string, unknown>;
   extracted_entities_json?: Record<string, unknown>;
   created_at: string;
+  categories?: ItemCategoryResponse[];
 }
 
 export interface Page {
@@ -82,6 +83,93 @@ export interface SavedSearchCreate {
   item_types?: ItemType[];
   date_from?: string;
   date_to?: string;
+}
+
+// Category types
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  color: string;
+  keywords?: string[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategoryWithStats extends Category {
+  item_count?: number;
+  avg_confidence?: number;
+  recent_items?: number;
+}
+
+export interface ItemCategory {
+  id: number;
+  item_id: number;
+  category_id: number;
+  confidence: number;
+  source: 'auto' | 'manual';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemCategoryResponse extends ItemCategory {
+  category: Category;
+}
+
+export interface ItemWithCategories extends Item {
+  categories: ItemCategoryResponse[];
+}
+
+export interface CategoryCreate {
+  name: string;
+  slug: string;
+  description?: string;
+  color: string;
+  keywords?: string[];
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface CategoryUpdate {
+  name?: string;
+  slug?: string;
+  description?: string;
+  color?: string;
+  keywords?: string[];
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface ItemCategoryCreate {
+  category_id: number;
+  confidence: number;
+  notes?: string;
+}
+
+export interface BatchClassificationRequest {
+  item_ids: number[];
+  confidence_threshold?: number;
+  clear_existing?: boolean;
+}
+
+export interface BatchClassificationResponse {
+  total_items: number;
+  items_classified: number;
+  total_classifications: number;
+  failed_items: number[];
+  processing_time: number;
+}
+
+export interface ClassificationStats {
+  total_items: number;
+  items_classified: number;
+  total_classifications: number;
+  classification_rate: number;
+  avg_categories_per_item: number;
 }
 
 // Auth types
