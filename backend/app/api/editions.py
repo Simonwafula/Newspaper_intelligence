@@ -5,18 +5,32 @@ import os
 from datetime import datetime
 
 import fitz  # PyMuPDF
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.auth import verify_admin_token
 from app.api.users import get_current_user
-from app.db.database import get_db
+from app.db.database import SessionLocal, get_db
 from app.models import Edition
 from app.schemas import EditionResponse, EditionStatus
+from app.services.processing_service import create_processing_service
 from app.settings import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def run_processing_task(edition_id: int) -> None:
+    """
+    Background task that creates its own database session.
+    This is needed because FastAPI's request-scoped session closes after the request.
+    """
+    db = SessionLocal()
+    try:
+        processing_service = create_processing_service()
+        processing_service.process_edition(edition_id, db)
+    finally:
+        db.close()
 
 
 def calculate_file_hash(file_content: bytes) -> str:
@@ -180,6 +194,7 @@ async def create_edition(
     file: UploadFile = File(...),
     newspaper_name: str = Form(...),
     edition_date: str = Form(...),
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: None = Depends(verify_admin_token)
 ):
@@ -251,6 +266,12 @@ async def create_edition(
     db.add(edition)
     db.commit()
     db.refresh(edition)
+
+    edition.status = EditionStatus.PROCESSING  # type: ignore
+    db.commit()
+    db.refresh(edition)
+
+    background_tasks.add_task(run_processing_task, edition.id)
 
     return edition
 

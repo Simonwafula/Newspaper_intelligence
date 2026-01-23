@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # Processing limits
     max_pdf_size: str = "50MB"
     min_chars_for_native_text: int = 200
+    processing_max_workers: int = 1
+    processing_db_commit_interval: int = 5
     ocr_enabled: bool = True
     ocr_languages: str = "eng"
 

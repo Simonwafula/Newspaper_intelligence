@@ -1,5 +1,6 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -61,41 +62,37 @@ class ProcessingService:
             edition.num_pages = num_pages
             db.commit()
 
-            # Process each page
+            pages_data = self.pdf_processor.extract_all_pages(edition.file_path)
+
+            stats = {
+                'total_pages': num_pages,
+                'pages_processed': 0,
+                'pages_with_ocr': 0,
+                'total_items': 0
+            }
+            extraction_run.stats_json = dict(stats)
+            db.commit()
+
             total_items = 0
             pages_with_ocr = 0
+            pages_processed = 0
+            commit_interval = max(1, settings.processing_db_commit_interval)
+            pending_commits = 0
 
-            for page_num in range(num_pages):
-                logger.info(f"Processing page {page_num + 1}/{num_pages}")
-
-                # Extract text from page
-                pages_data = self.pdf_processor.extract_all_pages(edition.file_path)
-                if page_num >= len(pages_data):
-                    logger.warning(f"Page {page_num + 1} not found in extracted data")
-                    continue
-
+            def process_page(page_num: int) -> dict | None:
                 page_data = pages_data[page_num]
+                page_data = dict(page_data)
+                page_data['text_blocks'] = list(page_data.get('text_blocks', []))
 
-                # Create page record
-                page = Page(
-                    edition_id=edition_id,
-                    page_number=page_num + 1,
-                    extracted_text=page_data['extracted_text'],
-                    bbox_json={'text_blocks': page_data.get('text_blocks', [])}
-                )
-                db.add(page)
-                db.commit()
-                db.refresh(page)
+                used_ocr = False
+                image_path = None
 
-                # OCR if needed
-                if page_data['needs_ocr'] and self.ocr_service and self.ocr_service.is_available():
+                if page_data.get('needs_ocr') and self.ocr_service and self.ocr_service.is_available():
                     try:
                         logger.info(f"Running OCR on page {page_num + 1}")
 
-                        # Get page image
                         image_bytes = self.pdf_processor.get_page_image(edition.file_path, page_num)
 
-                        # Save page image for reference
                         pages_dir = os.path.join(settings.storage_path, "pages")
                         os.makedirs(pages_dir, exist_ok=True)
                         image_path = os.path.join(pages_dir, f"{edition_id}_{page_num + 1}.png")
@@ -103,31 +100,55 @@ class ProcessingService:
                         with open(image_path, 'wb') as f:
                             f.write(image_bytes)
 
-                        page.image_path = image_path
-
-                        # Extract text with OCR
                         ocr_result = self.ocr_service.extract_text_with_boxes(image_bytes)
-                        page.extracted_text = ocr_result['text']
-
-                        # Update page data with OCR results
                         page_data['extracted_text'] = ocr_result['text']
                         page_data['text_blocks'].extend(ocr_result['text_blocks'])
-                        page.bbox_json = {'text_blocks': page_data['text_blocks']}
-
-                        pages_with_ocr += 1
+                        used_ocr = True
 
                         logger.info(f"OCR completed for page {page_num + 1}")
 
                     except Exception as e:
                         logger.error(f"OCR failed for page {page_num + 1}: {e}")
-                        # Continue with native text extraction
 
-                # Analyze layout and extract items
                 try:
                     page_data = self.layout_analyzer.analyze_page(page_data)
+                except Exception as e:
+                    logger.error(f"Layout analysis failed for page {page_num + 1}: {e}")
+                    page_data['extracted_items'] = []
 
-                    # Save extracted items
-                    for item_data in page_data.get('extracted_items', []):
+                return {
+                    'page_num': page_num,
+                    'page_data': page_data,
+                    'image_path': image_path,
+                    'used_ocr': used_ocr,
+                }
+
+            def persist_page(result: dict | None) -> None:
+                nonlocal total_items, pages_with_ocr, pages_processed, pending_commits
+
+                pages_processed += 1
+
+                if result is None:
+                    stats['pages_processed'] = pages_processed
+                    extraction_run.stats_json = dict(stats)
+                else:
+                    page_num = result['page_num']
+                    page_data = result['page_data']
+
+                    page = Page(
+                        edition_id=edition_id,
+                        page_number=page_num + 1,
+                        extracted_text=page_data.get('extracted_text'),
+                        bbox_json={'text_blocks': page_data.get('text_blocks', [])}
+                    )
+                    if result.get('image_path'):
+                        page.image_path = result['image_path']
+
+                    db.add(page)
+                    db.flush()
+
+                    extracted_items = page_data.get('extracted_items', [])
+                    for item_data in extracted_items:
                         item = Item(
                             edition_id=edition_id,
                             page_id=page.id,
@@ -141,11 +162,44 @@ class ProcessingService:
                         db.add(item)
                         total_items += 1
 
-                    db.commit()
+                    if result.get('used_ocr'):
+                        pages_with_ocr += 1
 
-                except Exception as e:
-                    logger.error(f"Layout analysis failed for page {page_num + 1}: {e}")
-                    # Continue processing other pages
+                    stats['pages_processed'] = pages_processed
+                    stats['pages_with_ocr'] = pages_with_ocr
+                    stats['total_items'] = total_items
+                    extraction_run.stats_json = dict(stats)
+
+                pending_commits += 1
+                if pending_commits >= commit_interval or pages_processed == num_pages:
+                    db.commit()
+                    pending_commits = 0
+
+            if num_pages > len(pages_data):
+                logger.warning("PDF page count mismatch: extracted fewer pages than expected")
+
+            max_workers = max(1, settings.processing_max_workers)
+            max_pages = min(num_pages, len(pages_data))
+
+            if max_workers > 1:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [executor.submit(process_page, page_num) for page_num in range(max_pages)]
+                    for future in as_completed(futures):
+                        try:
+                            result = future.result()
+                        except Exception as e:
+                            logger.error(f"Page processing failed: {e}")
+                            result = None
+                        persist_page(result)
+            else:
+                for page_num in range(max_pages):
+                    logger.info(f"Processing page {page_num + 1}/{num_pages}")
+                    try:
+                        result = process_page(page_num)
+                    except Exception as e:
+                        logger.error(f"Page processing failed for page {page_num + 1}: {e}")
+                        result = None
+                    persist_page(result)
 
             # Update edition status
             edition.status = EditionStatus.READY  # type: ignore
@@ -154,12 +208,13 @@ class ProcessingService:
             # Update extraction run
             extraction_run.success = True
             extraction_run.finished_at = datetime.utcnow()
-            extraction_run.stats_json = {
-                'total_pages': num_pages,
+            stats.update({
+                'pages_processed': pages_processed,
                 'pages_with_ocr': pages_with_ocr,
                 'total_items': total_items,
                 'processing_time': (datetime.utcnow() - extraction_run.started_at).total_seconds()
-            }
+            })
+            extraction_run.stats_json = dict(stats)
 
             db.commit()
 

@@ -28,6 +28,7 @@ const EditionDetail = () => {
     queryKey: ['processing-status', editionId],
     queryFn: () => editionsApi.getProcessingStatus(editionId),
     enabled: !!edition && (edition.status === 'PROCESSING' || edition.status === 'FAILED'),
+    refetchInterval: edition?.status === 'PROCESSING' ? 2000 : false,
   });
 
   const { data: items, isLoading: itemsLoading } = useQuery({
@@ -90,6 +91,19 @@ const EditionDetail = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
+
+  const getNumber = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+  const latestRunStats = processingStatus?.extraction_runs?.[0]?.stats as
+    | Record<string, unknown>
+    | undefined;
+  const totalPages = getNumber(latestRunStats?.total_pages);
+  const pagesProcessed = getNumber(latestRunStats?.pages_processed);
+  const progressPct =
+    totalPages && pagesProcessed !== undefined
+      ? Math.min(100, Math.round((pagesProcessed / totalPages) * 100))
+      : undefined;
 
   if (editionLoading) {
     return (
@@ -203,6 +217,22 @@ const EditionDetail = () => {
               <p className="text-amber-700 text-sm">
                 The edition is being processed. This may take a few minutes.
               </p>
+              {totalPages && pagesProcessed !== undefined && progressPct !== undefined && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-xs text-amber-700 mb-1">
+                    <span>Progress</span>
+                    <span>
+                      {progressPct}% ({pagesProcessed}/{totalPages} pages)
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-amber-100 rounded">
+                    <div
+                      className="h-2 bg-amber-400 rounded"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
