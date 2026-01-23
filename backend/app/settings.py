@@ -26,9 +26,6 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
-    # Security - Legacy admin token (still supported)
-    admin_token: str | None = None
-
     # JWT Authentication
     secret_key: str = secrets.token_urlsafe(32)  # Generate random key if not set
     jwt_algorithm: str = "HS256"

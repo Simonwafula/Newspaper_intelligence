@@ -5,29 +5,12 @@ import { PageContainer, PageHeader } from '../components/layout';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, StatusBadge } from '../components/ui';
 
 const Admin = () => {
-  const [token, setToken] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [newspaperName, setNewspaperName] = useState('');
   const [editionDate, setEditionDate] = useState('');
   const [error, setError] = useState('');
   const [lastUploadId, setLastUploadId] = useState<number | null>(null);
   const queryClient = useQueryClient();
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (token.trim()) {
-      localStorage.setItem('adminToken', token.trim());
-      setIsAuthenticated(true);
-      setError('');
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('adminToken');
-    setIsAuthenticated(false);
-    setToken('');
-  };
 
   const uploadMutation = useMutation({
     mutationFn: (data: { file: File; newspaperName: string; editionDate: string }) =>
@@ -65,11 +48,6 @@ const Admin = () => {
       return;
     }
 
-    const savedToken = localStorage.getItem('adminToken');
-    if (savedToken) {
-      localStorage.setItem('adminToken', savedToken);
-    }
-
     uploadMutation.mutate({ file, newspaperName, editionDate });
   };
 
@@ -77,7 +55,7 @@ const Admin = () => {
     queryKey: ['edition', lastUploadId],
     queryFn: () => editionsApi.getEdition(lastUploadId as number),
     enabled: lastUploadId !== null,
-    refetchInterval: (data) => (data?.status === 'PROCESSING' ? 2000 : false),
+    refetchInterval: (query) => (query.state.data?.status === 'PROCESSING' ? 2000 : false),
   });
 
   const { data: processingStatus } = useQuery({
@@ -136,48 +114,9 @@ const Admin = () => {
       ? Math.min(100, Math.round((pagesProcessed / totalPages) * 100))
       : undefined;
 
-  if (!isAuthenticated) {
-    return (
-      <PageContainer maxWidth="sm">
-        <div className="py-12">
-          <Card className="p-6">
-            <CardHeader>
-              <CardTitle className="text-center text-2xl">Admin Login</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <Input
-                  label="Admin Token"
-                  type="password"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  placeholder="Enter admin token"
-                  required
-                />
-                <Button type="submit" className="w-full">
-                  Login
-                </Button>
-              </form>
-              <p className="mt-4 text-sm text-stone-500 text-center">
-                Use the ADMIN_TOKEN from your environment variables
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer maxWidth="2xl">
-      <PageHeader
-        title="Admin Dashboard"
-        actions={
-          <Button variant="secondary" onClick={logout}>
-            Logout
-          </Button>
-        }
-      />
+      <PageHeader title="Admin Dashboard" />
 
       <Card>
         <CardHeader>

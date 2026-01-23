@@ -1,13 +1,11 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { Edition, Item, SearchResult, GlobalSearchResult, SavedSearch, SavedSearchCreate, ItemType, ItemSubtype } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007';
-const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN;
 
-const getAuthHeaders = () => {
-  const storedToken = localStorage.getItem('adminToken');
-  const token = storedToken || ADMIN_TOKEN;
-  return token ? { 'X-Admin-Token': token } : {};
+// Get JWT token from localStorage
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('access_token');
 };
 
 const api = axios.create({
@@ -16,6 +14,36 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Request interceptor to add Authorization header
+api.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      // Clear auth state and redirect to login
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_role');
+
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const editionsApi = {
   // Get all editions
@@ -40,7 +68,6 @@ export const editionsApi = {
     const response = await api.post('/api/editions/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        ...getAuthHeaders(),
       },
     });
     return response.data;
@@ -48,17 +75,13 @@ export const editionsApi = {
 
   // Reprocess edition
   reprocessEdition: async (id: number): Promise<Edition> => {
-    const response = await api.post(`/api/editions/${id}/reprocess`, {}, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.post(`/api/editions/${id}/reprocess`, {});
     return response.data;
   },
 
   // Process edition (trigger processing)
   processEdition: async (id: number): Promise<Edition> => {
-    const response = await api.post(`/api/editions/${id}/process`, {}, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.post(`/api/editions/${id}/process`, {});
     return response.data;
   },
 
@@ -178,40 +201,30 @@ export const savedSearchesApi = {
 
   // Create saved search
   createSavedSearch: async (search: SavedSearchCreate): Promise<SavedSearch> => {
-    const response = await api.post('/api/saved-searches', search, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.post('/api/saved-searches', search);
     return response.data;
   },
 
   // Update saved search
   updateSavedSearch: async (id: number, search: SavedSearchCreate): Promise<SavedSearch> => {
-    const response = await api.put(`/api/saved-searches/${id}`, search, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.put(`/api/saved-searches/${id}`, search);
     return response.data;
   },
 
   // Delete saved search
   deleteSavedSearch: async (id: number): Promise<void> => {
-    await api.delete(`/api/saved-searches/${id}`, {
-      headers: getAuthHeaders(),
-    });
+    await api.delete(`/api/saved-searches/${id}`);
   },
 
   // Update search matches
   updateSearchMatches: async (id: number): Promise<SavedSearch> => {
-    const response = await api.post(`/api/saved-searches/${id}/update-matches`, {}, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.post(`/api/saved-searches/${id}/update-matches`, {});
     return response.data;
   },
 
   // Update all search matches
   updateAllSearchMatches: async (): Promise<{ message: string; updated: number; failed: number }> => {
-    const response = await api.post('/api/saved-searches/update-all-matches', {}, {
-      headers: getAuthHeaders(),
-    });
+    const response = await api.post('/api/saved-searches/update-all-matches', {});
     return response.data;
   },
 };

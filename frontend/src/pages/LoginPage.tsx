@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -14,6 +15,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated } = useAuth();
+
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/app/editions';
+    navigate(from, { replace: true });
+    return null;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -26,29 +36,12 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('username', formData.email);
-      formData.append('password', formData.password);
-
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Invalid credentials');
-      }
-
-      const data = await response.json();
-      
-      // Store JWT token
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('user_role', data.user_role || 'READER');
-      
-      // Redirect to authenticated app
-      navigate('/app/editions');
+      await login(formData.email, formData.password);
+      // Navigate to the intended destination or default
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/app/editions';
+      navigate(from, { replace: true });
     } catch (err) {
-      setError('Invalid email or password');
+      setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
       setLoading(false);
     }

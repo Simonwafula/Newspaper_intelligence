@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface NavItem {
   path: string;
@@ -8,20 +9,13 @@ interface NavItem {
 }
 
 export function AuthenticatedHeader() {
-  const [userRole, setUserRole] = useState<string>('READER');
+  const { role, logout, isAdmin } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Get user role from localStorage
-    const storedRole = localStorage.getItem('user_role') || 'READER';
-    setUserRole(storedRole);
-  }, []);
-
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_role');
+    logout();
     navigate('/');
   };
 
@@ -42,8 +36,8 @@ export function AuthenticatedHeader() {
 
   const allNavItems = [...readerNavItems, ...adminNavItems];
 
-  const filteredNavItems = userRole === 'ADMIN' 
-    ? allNavItems 
+  const filteredNavItems = isAdmin()
+    ? allNavItems
     : readerNavItems;
 
   return (
@@ -77,7 +71,7 @@ export function AuthenticatedHeader() {
             ))}
             <div className="ml-4 flex items-center space-x-2">
               <span className="text-sm text-ink-600">
-                {userRole === 'ADMIN' ? 'Admin' : 'Reader'}
+                {role === 'ADMIN' ? 'Admin' : 'Reader'}
               </span>
               <button
                 onClick={handleLogout}
@@ -129,7 +123,7 @@ export function AuthenticatedHeader() {
               ))}
               <div className="pt-4 border-t border-stone-200 mt-4">
                 <div className="px-4 py-2 text-sm text-ink-600">
-                  Logged in as: {userRole === 'ADMIN' ? 'Admin' : 'Reader'}
+                  Logged in as: {role === 'ADMIN' ? 'Admin' : 'Reader'}
                 </div>
                 <button
                   onClick={handleLogout}
