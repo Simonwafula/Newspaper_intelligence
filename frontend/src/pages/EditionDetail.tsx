@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi, favoritesApi, collectionsApi } from '../services/api';
-import { Item, ItemType, Collection } from '../types';
+import { ItemType, Collection } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
@@ -359,8 +359,8 @@ const EditionDetail = () => {
                       <button
                         onClick={() => toggleFavorite(item.id)}
                         className={`p-1.5 rounded-full transition-colors ${userFavorites.includes(item.id)
-                            ? 'text-red-500 hover:bg-red-50'
-                            : 'text-gray-400 hover:bg-gray-100'
+                          ? 'text-red-500 hover:bg-red-50'
+                          : 'text-gray-400 hover:bg-gray-100'
                           }`}
                         title={userFavorites.includes(item.id) ? "Remove from Favorites" : "Add to Favorites"}
                       >

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { searchApi, favoritesApi } from '../services/api';
-import { SearchResult, ItemType, ItemSubtype, Favorite } from '../types';
+import { SearchResult, ItemType, ItemSubtype } from '../types';
 import { PageContainer, PageHeader } from '../components/layout';
 import { Button, Input, Card, Loading } from '../components/ui';
 
@@ -254,8 +254,8 @@ const Search = () => {
                         toggleFavorite(result.item_id);
                       }}
                       className={`p-1 rounded-full transition-colors ${userFavorites.includes(result.item_id)
-                          ? 'text-red-500 hover:bg-red-50'
-                          : 'text-gray-400 hover:bg-gray-100'
+                        ? 'text-red-500 hover:bg-red-50'
+                        : 'text-gray-400 hover:bg-gray-100'
                         }`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={userFavorites.includes(result.item_id) ? "currentColor" : "none"} stroke="currentColor">
