@@ -452,6 +452,38 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 ## Agent Session Logs
 
 ### Current Session
+**Start Time:** 2026-01-23
+**End Time:** 2026-01-23
+**Focus:** UI/UX Upgrade + Phase 2 Feature Planning
+**Duration:** ~2 hours
+**Tasks Completed:**
+- Full Tailwind CSS migration of frontend
+- Created reusable UI component library (Button, Input, Badge, Card, Spinner)
+- Created layout components (Header with mobile menu, PageContainer)
+- Migrated all 7 pages to Tailwind (EditionsLibrary, EditionDetail, Search, GlobalSearch, SavedSearches, Admin, ErrorPage)
+- Deleted legacy App.css (640+ lines removed)
+- Added Phase 2 feature roadmap with 10 new feature plans
+- Prioritized features for economist/researcher use case
+**Files Modified:**
+- `frontend/package.json` - Added tailwindcss, postcss, autoprefixer
+- `frontend/tailwind.config.js` - New config with custom colors
+- `frontend/postcss.config.js` - New PostCSS config
+- `frontend/src/index.css` - Replaced with Tailwind directives
+- `frontend/src/App.tsx` - New layout with Header component
+- `frontend/src/App.css` - DELETED
+- `frontend/src/components/ui/*` - 6 new UI components
+- `frontend/src/components/layout/*` - 3 new layout components
+- `frontend/src/pages/*.tsx` - All 7 pages migrated
+- `frontend/src/components/ErrorBoundary.tsx` - Migrated to Tailwind
+- `agent-work.md` - Added Phase 2 feature roadmap (tasks 8-17)
+**Verification Results:**
+- TypeScript: `npm run typecheck` passes
+- Build: `npm run build` succeeds (18KB CSS, 284KB JS)
+- Lint: `npm run lint` passes
+- Mobile responsive: Header with hamburger menu, proper breakpoints
+**Next Steps:** Begin implementation of Task (8) Topic Categories & Auto-Tagging
+
+### Previous Session
 **Start Time:** 2026-01-22
 **End Time:** 2026-01-22
 **Focus:** Review and verify project completion status
@@ -474,6 +506,11 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 *No previous sessions logged - this is the first iteration*
 
 ### Recent Completions
+- **2026-01-23:** Full Tailwind CSS migration - modern, responsive UI
+- **2026-01-23:** Created reusable component library (Button, Input, Badge, Card, Spinner)
+- **2026-01-23:** Added mobile hamburger menu and active route indicator
+- **2026-01-23:** Migrated all 7 pages to Tailwind, deleted 640+ lines of legacy CSS
+- **2026-01-23:** Added Phase 2 feature roadmap (Tasks 8-17) for intelligence features
 - **2026-01-22:** Enhanced agent-work.md with behavior instructions and tracking framework
 - **2026-01-22:** Updated TODO backlog to reflect actual project completion status
 - **2026-01-22:** Verified backend and frontend functionality
@@ -485,6 +522,7 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 - **2026-01-22:** Updated operational runbook with git commands and export troubleshooting
 - **2026-01-22:** Implemented Cross-Edition Search with enhanced global search endpoint, date filtering, and dedicated UI page
 **MVP Status:** Complete - All core functionality implemented and tested
+**Phase 2 Status:** Planned - 10 intelligence/analytics features defined and prioritized
 
 ### Test Results History
 *No test results yet - project in early setup phase*
@@ -499,6 +537,27 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 - **Testing & QA:** TBD
 
 ## Next Sessions Roadmap
+
+### (CRITICAL) Security & Authentication Fix 🚨
+**Status**: 🔄 **IN PROGRESS**  
+**Priority**: 🚨 **CRITICAL - BLOCKS ALL PRODUCTION USE**  
+**DoD**: Export endpoints protected, User model implemented, basic auth system working  
+**Files touched**: `backend/app/api/export.py`, `backend/app/models/__init__.py`, `backend/app/api/auth.py`, `backend/app/main.py`, `docs/PERMISSIONS_MATRIX.md`  
+**Verification**: 
+- Export endpoints return 401/403 without authentication
+- User registration/login works
+- JWT or session management functional
+- Public endpoints exist and work
+**Commands**: 
+- `curl -X GET "http://localhost:8007/api/export/edition/1/export/all.csv"` → should return 401
+- Test user creation and login flow
+**Started**: 2026-01-23
+**Time Spent**: ~3 hours (estimated)
+**Test Results**: 
+- Created comprehensive permissions matrix documenting all security gaps
+- Identified export endpoints as major security vulnerability  
+- Planned complete authentication system implementation
+**Notes**: This is a BLOCKING issue - the app cannot be used in production without proper authentication. All Phase 2 features are blocked until this is resolved.
 
 ### (0) Truth & Operability Updates ✅
 **Status**: DONE  
@@ -615,7 +674,7 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 **Commands**: Test deploy script locally, verify systemd service template
 **Completed**: 2026-01-22
 **Time Spent**: ~1.5 hours
-**Test Results**: 
+**Test Results**:
 - Created comprehensive systemd service template with security hardening
 - Implemented robust deployment script with error handling and logging
 - Added detailed deployment section to README with troubleshooting guide
@@ -623,6 +682,529 @@ Upload → Validate → Store → Extract Text → OCR (if needed) → Layout An
 - All linting, building, and tests passing
 - Deployment script syntax verified and ready for production use
 **Notes**: Complete deployment tooling with systemd service template, automated deployment script, and comprehensive documentation. Script includes health checks, error handling, and proper security configurations.
+
+---
+
+## JTBD Compliance Analysis
+
+### Current State vs Requirements
+
+**CRITICAL FINDING**: The application currently **DOES NOT** meet the JTBD requirements due to missing authentication and authorization system.
+
+#### What Works ✅
+- PDF upload and processing pipeline 
+- Text extraction and OCR
+- Layout analysis and item classification
+- Search functionality within and across editions
+- Export functionality (CSV format)
+- Structured classifieds data extraction
+- Saved searches functionality
+- Processing UX with progress tracking
+
+#### Critical Gaps ❌
+1. **No User Authentication System**
+   - No User model with READER/ADMIN roles
+   - No login/logout functionality
+   - No JWT or session management
+
+2. **No Role-Based Authorization**
+   - All endpoints are currently public (except admin token write ops)
+   - Cannot distinguish between Public, Reader, and Admin access
+
+3. **Missing Public API Surface**
+   - No `/api/public/editions` endpoint (covers only)
+   - No `/api/public/editions/{id}/cover` endpoint
+   - Public users can currently access ALL data
+
+4. **Security Violations**
+   - Export endpoints are publicly accessible (MAJOR SECURITY ISSUE)
+   - Anyone can download all extracted data without authentication
+   - No protection for story text, classifieds details
+
+### Implementation Requirements
+
+#### Phase 1: Critical Security Fix (IMMEDIATE)
+**Priority**: 🚨 **CRITICAL** - Must be implemented before any production use
+
+**Tasks**:
+1. **Protect Export Endpoints Now** - Add admin token requirement to all export endpoints
+2. **User Authentication System** - Implement User model, password hashing, JWT/sessions
+3. **Public API Endpoints** - Create cover-only public endpoints
+4. **Role-Based Dependencies** - Implement authentication dependencies for all endpoints
+
+**Files to Create/Modify**:
+- `backend/app/models/__init__.py` - Add User model
+- `backend/app/api/auth.py` - Complete authentication system  
+- `backend/app/api/public.py` - New public endpoints router
+- `backend/app/main.py` - Register new routers
+- `docs/PERMISSIONS_MATRIX.md` - ✅ COMPLETED
+
+#### Phase 2: Complete Authorization Implementation
+**Priority**: **HIGH** - Required for JTBD compliance
+
+**Tasks**:
+1. **Migrate All Endpoints** - Add proper authentication to existing endpoints
+2. **Frontend Authentication** - Login page, session management, role-based UI
+3. **Comprehensive Testing** - Test all permission combinations
+4. **Database Migration** - Add User table and initial admin user
+
+#### Verification Commands
+```bash
+# Test public access (should work)
+curl -X GET "http://localhost:8007/api/public/editions"
+
+# Test unauthorized access (should fail)
+curl -X GET "http://localhost:8007/api/editions"  # Should return 401
+curl -X GET "http://localhost:8007/api/export/edition/1/export/all.csv"  # Should return 401
+
+# Test admin access (should work with token)
+curl -H "X-Admin-Token: secret" -X GET "http://localhost:8007/api/export/edition/1/export/all.csv"
+```
+
+### Updated Sessions Roadmap
+
+#### Critical Security Fix Session (NEW - IMMEDIATE)
+**Status**: 🔄 **IN PROGRESS**  
+**DoD**: Export endpoints protected, User model implemented, basic auth system working  
+**Files touched**: `backend/app/api/export.py`, `backend/app/models/__init__.py`, `backend/app/api/auth.py`, `backend/app/main.py`  
+**Verification**: Export endpoints return 401 without auth, user can register/login  
+**Commands**: Test export security, test user creation and login  
+**Priority**: 🚨 **CRITICAL - BLOCKS PRODUCTION**
+
+#### Complete Authorization Session (NEW - HIGH)  
+**Status**: TODO  
+**DoD**: All endpoints properly protected by role, frontend auth implemented  
+**Files touched**: All API routers, frontend pages, `frontend/src/services/api.ts`  
+**Verification**: Full test suite of permissions matrix passes  
+**Commands**: `make test` includes auth tests, manual testing of all roles
+
+### Impact on Phase 2 Features
+
+All Phase 2 intelligence features are **BLOCKED** until authentication system is implemented because:
+- Topic categories require user-specific preferences
+- Collections and favorites need user ownership
+- Analytics dashboards need user context
+- API keys for external apps require user management
+
+---
+
+## Phase 2: Intelligence & Analytics Features
+
+### Target Users
+- **Economists/Researchers**: Track economic/social trends, cite sources
+- **Business Intelligence**: Monitor industry news, find opportunities
+- **Labor Market Analysis**: Extract structured data from classifieds/tenders for analytics pipelines
+
+### (8) Topic Categories & Auto-Tagging 📋
+**Status**: TODO
+**Priority**: HIGH (foundational for all reading/filtering features)
+**DoD**:
+- Category model with predefined topics
+- Auto-classification of items during extraction
+- Category filter on all list/search pages
+- Category browsing page
+
+**Subtasks**:
+
+#### 8.1 Category Database Model
+**Status**: TODO
+**DoD**: Category table, ItemCategory junction table, migration
+**Files to modify**:
+- `backend/app/models/__init__.py` - Add Category, ItemCategory models
+- `backend/alembic/versions/` - New migration
+**Schema**:
+```python
+class Category(Base):
+    id: int
+    name: str  # "Economics", "Politics", "Labor", "Business", etc.
+    slug: str  # URL-friendly version
+    description: str
+    color: str  # For UI badges
+    keywords: List[str]  # Keywords for auto-classification
+
+class ItemCategory(Base):
+    item_id: int (FK)
+    category_id: int (FK)
+    confidence: float  # 0.0-1.0 classification confidence
+    source: str  # "auto" or "manual"
+```
+**Predefined Categories**:
+- Economics & Finance
+- Politics & Government
+- Business & Industry
+- Labor & Employment
+- Social Issues
+- Infrastructure & Development
+- Agriculture & Rural
+- Legal & Notices
+- Sports & Entertainment
+- Science & Technology
+
+#### 8.2 Auto-Classification Service
+**Status**: TODO
+**DoD**: Keyword-based classifier with confidence scoring
+**Files to create/modify**:
+- `backend/app/services/category_classifier.py` - Classification logic
+- `backend/app/services/processing_service.py` - Integrate into extraction
+**Implementation**:
+- Keyword matching with weighted scoring
+- Title/headline analysis (higher weight)
+- Body text analysis (lower weight)
+- Confidence threshold for assignment
+- Multiple categories per item allowed
+**Verification**: Run on existing items, spot-check accuracy
+
+#### 8.3 Category API Endpoints
+**Status**: TODO
+**DoD**: CRUD for categories, item categorization endpoints
+**Files to modify**:
+- `backend/app/api/categories.py` - New router
+- `backend/app/schemas.py` - Category schemas
+- `backend/app/main.py` - Register router
+**Endpoints**:
+- `GET /api/categories` - List all categories with item counts
+- `GET /api/categories/{slug}/items` - Items in category (paginated)
+- `POST /api/items/{id}/categories` - Manually assign category (admin)
+- `DELETE /api/items/{id}/categories/{category_id}` - Remove category (admin)
+- `POST /api/categories/reclassify` - Re-run classification on all items (admin)
+
+#### 8.4 Category Frontend Components
+**Status**: TODO
+**DoD**: Category filter chips, category page, category badges on items
+**Files to create/modify**:
+- `frontend/src/components/ui/CategoryBadge.tsx` - Colored category badges
+- `frontend/src/components/CategoryFilter.tsx` - Filter chip selector
+- `frontend/src/pages/Categories.tsx` - Browse by category page
+- `frontend/src/pages/CategoryDetail.tsx` - Items in category
+- Update: EditionsLibrary, EditionDetail, GlobalSearch with category filters
+**UI Elements**:
+- Category badges with colors on item cards
+- Multi-select category filter (chips)
+- Category sidebar/dropdown in search
+- "Browse by Category" page with counts
+
+### (9) Structured Classifieds Data 📋
+**Status**: TODO
+**Priority**: HIGH (feeds labor market analysis app)
+**DoD**:
+- Enhanced classified parsing with structured fields
+- Job listings: employer, title, salary, qualifications, location
+- Tenders: issuer, deadline, value, category
+- Export API for structured data
+
+**Subtasks**:
+
+#### 9.1 Enhanced Classified Schema
+**Status**: TODO
+**DoD**: Extended Item model with structured classified fields
+**Files to modify**:
+- `backend/app/models/__init__.py` - Add ClassifiedData JSON field or separate tables
+- `backend/alembic/versions/` - Migration
+**Schema** (stored as JSON in `structured_data` field):
+```python
+# For Jobs
+{
+    "employer": str,
+    "job_title": str,
+    "location": str,
+    "salary_min": float,
+    "salary_max": float,
+    "salary_currency": str,
+    "qualifications": List[str],
+    "experience_years": int,
+    "sector": str,
+    "deadline": date,
+    "contact": str
+}
+# For Tenders
+{
+    "issuer": str,
+    "tender_number": str,
+    "title": str,
+    "category": str,  # construction, supplies, services
+    "estimated_value": float,
+    "currency": str,
+    "deadline": datetime,
+    "eligibility": List[str],
+    "contact": str
+}
+```
+
+#### 9.2 Intelligent Parsing Service
+**Status**: TODO
+**DoD**: Extract structured fields from classified text
+**Files to create/modify**:
+- `backend/app/services/classifieds_intelligence.py` - Enhanced parsing
+**Implementation**:
+- Regex patterns for common formats
+- Salary extraction (handle ranges, currencies)
+- Date/deadline extraction
+- Organization name detection
+- Location normalization
+- Sector classification
+**Verification**: Parse existing classifieds, measure extraction rate
+
+#### 9.3 Structured Export API
+**Status**: TODO
+**DoD**: Export endpoints for structured classified data
+**Files to modify**:
+- `backend/app/api/export.py` - Enhanced export with structured fields
+**Endpoints**:
+- `GET /api/export/jobs.csv` - All jobs with structured fields
+- `GET /api/export/jobs.json` - JSON format for API consumption
+- `GET /api/export/tenders.csv` - All tenders with structured fields
+- `GET /api/export/tenders.json` - JSON format
+- Query params: date_from, date_to, sector, location
+
+#### 9.4 Structured Data UI
+**Status**: TODO
+**DoD**: Enhanced display of structured classified data
+**Files to modify**:
+- `frontend/src/components/JobCard.tsx` - Rich job display
+- `frontend/src/components/TenderCard.tsx` - Rich tender display
+- `frontend/src/pages/Jobs.tsx` - Browse/filter jobs
+- `frontend/src/pages/Tenders.tsx` - Browse/filter tenders
+
+### (10) Favorites & Bookmarks 📋
+**Status**: TODO
+**Priority**: MEDIUM
+**DoD**:
+- Bookmark items for later reading
+- Favorites list page
+- Bookmark indicator on items
+
+**Subtasks**:
+
+#### 10.1 Favorites Model
+**Status**: TODO
+**DoD**: UserFavorite model (or session-based for MVP)
+**Files to modify**:
+- `backend/app/models/__init__.py` - Favorite model
+- `backend/alembic/versions/` - Migration
+**Schema**:
+```python
+class Favorite(Base):
+    id: int
+    item_id: int (FK)
+    session_id: str  # Browser session for anonymous users
+    created_at: datetime
+    notes: str  # Optional user note
+```
+
+#### 10.2 Favorites API
+**Status**: TODO
+**DoD**: Add/remove favorites, list favorites
+**Files to create**:
+- `backend/app/api/favorites.py`
+**Endpoints**:
+- `POST /api/favorites` - Add favorite (item_id)
+- `DELETE /api/favorites/{item_id}` - Remove favorite
+- `GET /api/favorites` - List all favorites
+
+#### 10.3 Favorites UI
+**Status**: TODO
+**DoD**: Bookmark icon on items, favorites page
+**Files to create/modify**:
+- `frontend/src/components/ui/BookmarkButton.tsx`
+- `frontend/src/pages/Favorites.tsx`
+- Update item cards with bookmark toggle
+
+### (11) Collections & Research Projects 📋
+**Status**: TODO
+**Priority**: MEDIUM
+**DoD**:
+- Create named collections of items
+- Add notes/annotations
+- Export collections with citations
+
+**Subtasks**:
+
+#### 11.1 Collections Model
+**Status**: TODO
+**DoD**: Collection and CollectionItem models
+**Schema**:
+```python
+class Collection(Base):
+    id: int
+    name: str
+    description: str
+    session_id: str
+    created_at: datetime
+    updated_at: datetime
+
+class CollectionItem(Base):
+    collection_id: int (FK)
+    item_id: int (FK)
+    notes: str  # User annotations
+    added_at: datetime
+    order: int  # For custom ordering
+```
+
+#### 11.2 Collections API
+**Status**: TODO
+**Endpoints**:
+- `POST /api/collections` - Create collection
+- `GET /api/collections` - List collections
+- `GET /api/collections/{id}` - Collection with items
+- `POST /api/collections/{id}/items` - Add item to collection
+- `PUT /api/collections/{id}/items/{item_id}` - Update notes
+- `DELETE /api/collections/{id}/items/{item_id}` - Remove item
+- `GET /api/collections/{id}/export` - Export with citations
+
+#### 11.3 Collections UI
+**Status**: TODO
+**DoD**: Collection management, add-to-collection modal, collection view
+**Files to create**:
+- `frontend/src/pages/Collections.tsx`
+- `frontend/src/pages/CollectionDetail.tsx`
+- `frontend/src/components/AddToCollectionModal.tsx`
+
+### (12) Trend Dashboard & Analytics 📋
+**Status**: TODO
+**Priority**: MEDIUM (valuable for research use case)
+**DoD**:
+- Topic frequency over time
+- Item volume trends
+- Visual charts/graphs
+- Word cloud / emerging terms
+
+**Subtasks**:
+
+#### 12.1 Analytics API
+**Status**: TODO
+**DoD**: Aggregate endpoints for trend data
+**Files to create**:
+- `backend/app/api/analytics.py`
+**Endpoints**:
+- `GET /api/analytics/trends` - Items by category over time
+- `GET /api/analytics/volume` - Total items by date
+- `GET /api/analytics/jobs/trends` - Job postings over time by sector
+- `GET /api/analytics/tenders/trends` - Tender activity over time
+- `GET /api/analytics/keywords` - Top keywords by period
+
+#### 12.2 Dashboard UI
+**Status**: TODO
+**DoD**: Visual dashboard with charts
+**Files to create**:
+- `frontend/src/pages/Dashboard.tsx`
+- `frontend/src/components/charts/TrendChart.tsx`
+- `frontend/src/components/charts/VolumeChart.tsx`
+- `frontend/src/components/charts/WordCloud.tsx`
+**Libraries**: Consider chart.js or recharts for visualization
+
+### (13) Smart Alerts & Notifications 📋
+**Status**: TODO
+**Priority**: LOW (builds on Saved Searches)
+**DoD**:
+- Email/webhook notifications for saved search matches
+- Digest emails (daily/weekly)
+- New content alerts
+
+**Subtasks**:
+
+#### 13.1 Alert Configuration
+**Status**: TODO
+**DoD**: Add notification settings to SavedSearch
+**Schema additions**:
+```python
+# Extend SavedSearch model
+notify_email: str
+notify_frequency: str  # "immediate", "daily", "weekly"
+webhook_url: str  # For API integration
+last_notified_at: datetime
+```
+
+#### 13.2 Notification Service
+**Status**: TODO
+**DoD**: Background job for sending notifications
+**Implementation options**:
+- Celery/Redis for background jobs (complex)
+- Simple cron script checking for new matches (simpler)
+- Webhook POST for immediate notifications
+
+### (14) REST API for External Apps 📋
+**Status**: TODO
+**Priority**: HIGH (feeds labor market analysis app)
+**DoD**:
+- API documentation (OpenAPI/Swagger)
+- API key authentication
+- Rate limiting
+- Webhook support for new data
+
+**Subtasks**:
+
+#### 14.1 API Authentication
+**Status**: TODO
+**DoD**: API key system for external apps
+**Schema**:
+```python
+class ApiKey(Base):
+    id: int
+    key: str  # Generated unique key
+    name: str  # Description/app name
+    created_at: datetime
+    last_used_at: datetime
+    rate_limit: int  # Requests per minute
+    is_active: bool
+```
+
+#### 14.2 Webhook System
+**Status**: TODO
+**DoD**: Push notifications for new data
+**Endpoints**:
+- `POST /api/webhooks` - Register webhook URL
+- `GET /api/webhooks` - List registered webhooks
+- `DELETE /api/webhooks/{id}` - Remove webhook
+**Events**: `item.created`, `edition.processed`, `search.matched`
+
+### (15) Entity Extraction 📋
+**Status**: TODO
+**Priority**: LOW (enhancement)
+**DoD**:
+- Extract organizations, people, locations from text
+- Entity linking across items
+- Entity search/filter
+
+**Implementation**:
+- Consider spaCy NER or simple regex patterns
+- Store entities in separate table with item links
+- Enable "find all mentions of X" queries
+
+### (16) Reading History 📋
+**Status**: TODO
+**Priority**: LOW
+**DoD**:
+- Track viewed items (session-based)
+- "Recently viewed" section
+- "Continue reading" suggestions
+
+### (17) Citation Export 📋
+**Status**: TODO
+**Priority**: LOW (valuable for researchers)
+**DoD**:
+- Export items in citation formats
+- APA, Chicago, custom formats
+- BibTeX export for academic use
+
+---
+
+## Implementation Priority Order
+
+### Phase 2A: Core Intelligence (Next Sprint)
+1. **(8) Topic Categories** - Foundation for browsing/filtering
+2. **(9) Structured Classifieds** - Feeds labor market app
+3. **(14) REST API** - External app integration
+
+### Phase 2B: User Features
+4. **(10) Favorites** - Quick save for later
+5. **(11) Collections** - Research organization
+6. **(12) Dashboard** - Trend visualization
+
+### Phase 2C: Advanced Features
+7. **(13) Smart Alerts** - Proactive notifications
+8. **(15) Entity Extraction** - Advanced search
+9. **(16) Reading History** - Personalization
+10. **(17) Citations** - Academic use case
 
 ## Known Issues / Bugs
 
@@ -649,6 +1231,70 @@ alembic upgrade head
 
 # Verify Export API
 curl -o export.csv "http://localhost:8007/api/export/edition/1/export/all.csv"
+```
+
+### Quick Commands (Makefile)
+
+#### Development
+```bash
+# Start both backend and frontend in development mode
+make dev
+
+# Start backend only (runs on port 8007)
+make dev-backend
+
+# Start frontend only (runs on port 5173)
+make dev-frontend
+```
+
+#### Testing
+```bash
+# Run all tests
+make test
+
+# Run backend tests only
+make test-backend
+# Or directly: cd backend && PYTHONPATH=$PWD python -m pytest tests/ -v
+
+# Run a single backend test file
+cd backend && PYTHONPATH=$PWD python -m pytest tests/test_main.py -v
+
+# Run a single test by name
+cd backend && PYTHONPATH=$PWD python -m pytest tests/test_main.py::test_function_name -v
+```
+
+#### Linting
+```bash
+# Run all linting
+make lint
+
+# Backend linting only
+make lint-backend
+# Or directly: cd backend && PYTHONPATH=$PWD ruff check .
+
+# Frontend linting only
+make lint-frontend
+# Or directly: cd frontend && npm run lint
+```
+
+#### Building
+```bash
+# Build both for production
+make build
+
+# Frontend typecheck and build
+cd frontend && npm run typecheck && npm run build
+```
+
+#### Database Migrations
+```bash
+# Apply migrations
+make db-upgrade
+# Or: cd backend && PYTHONPATH=$PWD alembic upgrade head
+
+# Create new migration (replace MSG with description)
+make db-create MSG="add_new_field"
+# Or: cd backend && PYTHONPATH=$PWD alembic revision --autogenerate -m "add_new_field"
 ```
 
 ### Git Workflow
@@ -710,6 +1356,9 @@ DATABASE_URL=sqlite:///./dev.db  # or postgresql+psycopg://...
 
 # Storage (optional, defaults to ./storage)
 STORAGE_PATH=./storage
+
+# Admin (required for admin operations)
+ADMIN_TOKEN=your-secret-token
 
 # Processing (optional)
 MAX_PDF_SIZE=50MB

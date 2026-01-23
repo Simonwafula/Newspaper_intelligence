@@ -1,8 +1,11 @@
+from enum import Enum as PyEnum
+
 from sqlalchemy import (
     JSON,
     Boolean,
     Column,
     DateTime,
+    Enum,
     ForeignKey,
     Integer,
     String,
@@ -12,6 +15,37 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.database import Base
+
+
+class UserRole(str, PyEnum):
+    """User roles for access control."""
+    USER = "USER"      # Can read full articles
+    ADMIN = "ADMIN"    # Can upload, process, manage
+
+
+class User(Base):
+    """User model for authentication and authorization."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(200), nullable=True)
+
+    # Role-based access
+    role = Column(String(20), nullable=False, default=UserRole.USER.value, index=True)
+
+    # Account status
+    is_active = Column(Boolean, nullable=False, default=True)
+    is_verified = Column(Boolean, nullable=False, default=False)  # Email verification
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)
+
+    def is_admin(self) -> bool:
+        """Check if user has admin role."""
+        return self.role == UserRole.ADMIN.value
 
 
 class Edition(Base):

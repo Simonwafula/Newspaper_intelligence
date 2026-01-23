@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from pydantic_settings import BaseSettings
 
@@ -23,8 +24,13 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
-    # Security
+    # Security - Legacy admin token (still supported)
     admin_token: str | None = None
+
+    # JWT Authentication
+    secret_key: str = secrets.token_urlsafe(32)  # Generate random key if not set
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24  # 24 hours
 
     class Config:
         env_file = ".env"

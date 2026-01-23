@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import editions, export, items, processing, saved_searches, search
+from app.api import editions, export, items, processing, saved_searches, search, users
 from app.db.database import Base, engine
 from app.settings import settings
 
@@ -44,6 +44,7 @@ app.include_router(items.router, prefix="/api/items", tags=["items"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(saved_searches.router, prefix="/api", tags=["saved-searches"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 
 if __name__ == "__main__":
