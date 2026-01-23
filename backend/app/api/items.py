@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.users import get_current_user
 from app.db.database import get_db
 from app.models import Edition, Item
 from app.schemas import ItemResponse, ItemSubtype, ItemType
@@ -17,7 +18,8 @@ async def get_edition_items(
     page_number: int | None = Query(None, description="Filter by page number"),
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(50, ge=1, le=1000, description="Maximum number of items to return"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user)
 ):
     """
     Get items for a specific edition with optional filtering.
@@ -44,7 +46,11 @@ async def get_edition_items(
 
 
 @router.get("/item/{item_id}", response_model=ItemResponse)
-async def get_item(item_id: int, db: Session = Depends(get_db)):
+async def get_item(
+    item_id: int, 
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user)
+):
     """
     Get a specific item by ID.
     """

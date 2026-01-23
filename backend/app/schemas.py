@@ -177,3 +177,30 @@ class TokenData(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+# Public API schemas - for unauthenticated access
+class EditionPublicResponse(BaseModel):
+    """Public edition information (covers-only access)."""
+    id: int
+    newspaper_name: str
+    edition_date: datetime
+    num_pages: int
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class ItemPublicResponse(BaseModel):
+    """Public item information (title and preview text only)."""
+    id: int
+    edition_id: int
+    page_number: int
+    item_type: str
+    subtype: str | None = None
+    title: str | None = None
+    text: str | None = None  # Preview text only (200 chars)
+
+    class Config:
+        from_attributes = True

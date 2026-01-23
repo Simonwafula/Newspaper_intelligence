@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy.orm import Session
 
 from app.api.auth import verify_admin_token
+from app.api.users import get_current_user
 from app.db.database import get_db
 from app.models import Edition
 from app.schemas import EditionResponse, EditionStatus
@@ -258,7 +259,8 @@ async def create_edition(
 async def list_editions(
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user)
 ):
     """
     List all editions with pagination.
@@ -268,7 +270,11 @@ async def list_editions(
 
 
 @router.get("/{edition_id}", response_model=EditionResponse)
-async def get_edition(edition_id: int, db: Session = Depends(get_db)):
+async def get_edition(
+    edition_id: int, 
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user)
+):
     """
     Get a specific edition by ID.
     """

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import editions, export, items, processing, saved_searches, search, users
+from app.api import editions, export, items, processing, public, saved_searches, search, users
 from app.db.database import Base, engine
 from app.settings import settings
 
@@ -38,6 +38,10 @@ async def health_check():
 
 
 
+# Public endpoints (no authentication required)
+app.include_router(public.router, prefix="/api/public", tags=["public"])
+
+# Authenticated endpoints
 app.include_router(editions.router, prefix="/api/editions", tags=["editions"])
 app.include_router(processing.router, prefix="/api/editions", tags=["processing"])
 app.include_router(items.router, prefix="/api/items", tags=["items"])

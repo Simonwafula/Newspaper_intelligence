@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api.auth import verify_admin_token
 from app.db.database import get_db
 from app.models import Edition, Item
 from app.schemas import ItemSubtype, ItemType
@@ -116,7 +117,8 @@ async def export_items_csv(
     edition_id: int,
     item_type: ItemType,
     subtype: ItemSubtype | None = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: None = Depends(verify_admin_token)
 ):
     """
     Export items from an edition as CSV file.
@@ -201,7 +203,8 @@ async def export_items_csv(
 @router.get("/edition/{edition_id}/export/all.csv")
 async def export_all_items_csv(
     edition_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: None = Depends(verify_admin_token)
 ):
     """
     Export all items from an edition as CSV file.

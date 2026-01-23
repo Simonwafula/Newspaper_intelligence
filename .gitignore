@@ -75,4 +75,5 @@ tmp/
 temp/
 
 # Agent logs
-ralph
+ralph-history.json
+ralph-loop.state.json
