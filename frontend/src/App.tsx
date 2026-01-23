@@ -1,6 +1,6 @@
-
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Header } from './components/layout/Header';
 import EditionsLibrary from './pages/EditionsLibrary';
 import EditionDetail from './pages/EditionDetail';
 import Search from './pages/Search';
@@ -8,9 +8,7 @@ import GlobalSearch from './pages/GlobalSearch';
 import SavedSearches from './pages/SavedSearches';
 import Admin from './pages/Admin';
 import ErrorPage from './pages/ErrorPage';
-import './App.css';
 
-// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -24,17 +22,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <div className="App">
-          <header className="App-header">
-            <h1>Newspaper PDF Intelligence</h1>
-            <nav className="App-nav">
-              <Link to="/" className="nav-link">Editions</Link>
-              <Link to="/search" className="nav-link">Search</Link>
-              <Link to="/global-search" className="nav-link">Global Search</Link>
-              <Link to="/saved-searches" className="nav-link">Saved Searches</Link>
-            </nav>
-          </header>
-          <main className="App-main">
+        <div className="min-h-screen bg-paper-50">
+          <Header />
+          <main>
             <Routes>
               <Route path="/" element={<EditionsLibrary />} />
               <Route path="/edition/:id" element={<EditionDetail />} />

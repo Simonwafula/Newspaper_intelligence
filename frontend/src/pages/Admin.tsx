@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi } from '../services/api';
+import { PageContainer, PageHeader } from '../components/layout';
+import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '../components/ui';
 
-const Admin: React.FC = () => {
+const Admin = () => {
   const [token, setToken] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -48,6 +50,7 @@ const Admin: React.FC = () => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
+      setError('');
     } else {
       setError('Please select a PDF file');
     }
@@ -70,74 +73,110 @@ const Admin: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="admin-login">
-        <h1>Admin Login</h1>
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="token">Admin Token:</label>
-            <input
-              type="password"
-              id="token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter admin token"
-              required
-            />
-          </div>
-          <button type="submit" className="btn">Login</button>
-        </form>
-        <p className="hint">Use the ADMIN_TOKEN from your environment variables</p>
-      </div>
+      <PageContainer maxWidth="sm">
+        <div className="py-12">
+          <Card className="p-6">
+            <CardHeader>
+              <CardTitle className="text-center text-2xl">Admin Login</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <Input
+                  label="Admin Token"
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Enter admin token"
+                  required
+                />
+                <Button type="submit" className="w-full">
+                  Login
+                </Button>
+              </form>
+              <p className="mt-4 text-sm text-stone-500 text-center">
+                Use the ADMIN_TOKEN from your environment variables
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="admin-page">
-      <div className="admin-header">
-        <h1>Admin Dashboard</h1>
-        <button onClick={logout} className="btn btn-secondary">Logout</button>
-      </div>
+    <PageContainer maxWidth="2xl">
+      <PageHeader
+        title="Admin Dashboard"
+        actions={
+          <Button variant="secondary" onClick={logout}>
+            Logout
+          </Button>
+        }
+      />
 
-      <div className="upload-form">
-        <h2>Upload Newspaper Edition</h2>
-        {error && <div className="error-message">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="file">PDF File:</label>
-            <input
-              type="file"
-              id="file"
-              accept=".pdf"
-              onChange={handleFileChange}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="newspaperName">Newspaper Name:</label>
-            <input
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Newspaper Edition</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-ink-800 mb-1.5">
+                PDF File
+              </label>
+              <div className="border-2 border-dashed border-stone-300 rounded-lg p-6 text-center hover:border-stone-400 transition-colors">
+                <input
+                  type="file"
+                  id="file"
+                  accept=".pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <label htmlFor="file" className="cursor-pointer">
+                  <div className="text-stone-600">
+                    {file ? (
+                      <span className="text-ink-800 font-medium">{file.name}</span>
+                    ) : (
+                      <>
+                        <span className="text-ink-800 font-medium">Click to upload</span> or drag and drop
+                        <div className="text-sm text-stone-500 mt-1">PDF files only</div>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <Input
+              label="Newspaper Name"
               type="text"
-              id="newspaperName"
               value={newspaperName}
               onChange={(e) => setNewspaperName(e.target.value)}
               placeholder="e.g., The Daily Gazette"
               required
             />
-          </div>
-          <div className="form-group">
-            <label htmlFor="editionDate">Edition Date:</label>
-            <input
+
+            <Input
+              label="Edition Date"
               type="date"
-              id="editionDate"
               value={editionDate}
               onChange={(e) => setEditionDate(e.target.value)}
               required
             />
-          </div>
-          <button type="submit" className="btn" disabled={uploadMutation.isPending}>
-            {uploadMutation.isPending ? 'Uploading...' : 'Upload Edition'}
-          </button>
-        </form>
-      </div>
-    </div>
+
+            <Button type="submit" isLoading={uploadMutation.isPending} className="w-full sm:w-auto">
+              {uploadMutation.isPending ? 'Uploading...' : 'Upload Edition'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 };
 

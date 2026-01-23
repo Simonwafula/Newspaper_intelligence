@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { editionsApi } from '../services/api';
 import { Edition } from '../types';
+import { PageContainer, PageHeader } from '../components/layout';
+import { Button, Input, Card, StatusBadge, Loading } from '../components/ui';
 
-const EditionsLibrary: React.FC = () => {
+const EditionsLibrary = () => {
   const [file, setFile] = useState<File | null>(null);
   const [newspaperName, setNewspaperName] = useState('');
   const [editionDate, setEditionDate] = useState('');
@@ -21,7 +23,6 @@ const EditionsLibrary: React.FC = () => {
       editionsApi.uploadEdition(data.file, data.newspaperName, data.editionDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['editions'] });
-      // Reset form
       setFile(null);
       setNewspaperName('');
       setEditionDate('');
@@ -29,7 +30,6 @@ const EditionsLibrary: React.FC = () => {
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      // Type assertion for axios error structure
       const axiosError = error as { response?: { data?: { detail?: string } } };
       const responseDetail = axiosError.response?.data?.detail;
       alert(`Upload failed: ${responseDetail || errorMessage}`);
@@ -59,87 +59,128 @@ const EditionsLibrary: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getStatusColor = (status: string) => {
-    return `status-${status}`;
-  };
-
   if (isLoading) {
-    return <div className="loading">Loading editions...</div>;
+    return (
+      <PageContainer>
+        <Loading message="Loading editions..." />
+      </PageContainer>
+    );
   }
 
   if (error) {
-    return <div className="error">Error loading editions: {(error as Error).message}</div>;
+    return (
+      <PageContainer>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          Error loading editions: {(error as Error).message}
+        </div>
+      </PageContainer>
+    );
   }
 
   return (
-    <div>
-      <div className="upload-form">
-        <h2>Upload Newspaper Edition</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="file">PDF File:</label>
-            <input
-              type="file"
-              id="file"
-              accept=".pdf"
-              onChange={handleFileChange}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="newspaperName">Newspaper Name:</label>
-            <input
-              type="text"
-              id="newspaperName"
-              value={newspaperName}
-              onChange={(e) => setNewspaperName(e.target.value)}
-              placeholder="e.g., The Daily Gazette"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="editionDate">Edition Date:</label>
-            <input
-              type="date"
-              id="editionDate"
-              value={editionDate}
-              onChange={(e) => setEditionDate(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" className="btn" disabled={uploadMutation.isPending}>
-            {uploadMutation.isPending ? 'Uploading...' : 'Upload Edition'}
-          </button>
-        </form>
-      </div>
+    <PageContainer>
+      {/* Upload Section */}
+      <Card className="mb-8">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-ink-800 mb-4">Upload Newspaper Edition</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-ink-800 mb-1.5">
+                  PDF File
+                </label>
+                <div className="border-2 border-dashed border-stone-300 rounded-lg p-4 text-center hover:border-stone-400 transition-colors">
+                  <input
+                    type="file"
+                    id="edition-file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="edition-file" className="cursor-pointer text-sm">
+                    {file ? (
+                      <span className="text-ink-800 font-medium">{file.name}</span>
+                    ) : (
+                      <span className="text-stone-500">Click to select PDF</span>
+                    )}
+                  </label>
+                </div>
+              </div>
 
-      <div className="editions-section">
-        <h2>Editions Library</h2>
+              <Input
+                label="Newspaper Name"
+                type="text"
+                value={newspaperName}
+                onChange={(e) => setNewspaperName(e.target.value)}
+                placeholder="e.g., The Daily Gazette"
+                required
+              />
+
+              <Input
+                label="Edition Date"
+                type="date"
+                value={editionDate}
+                onChange={(e) => setEditionDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <Button type="submit" isLoading={uploadMutation.isPending}>
+              {uploadMutation.isPending ? 'Uploading...' : 'Upload Edition'}
+            </Button>
+          </form>
+        </div>
+      </Card>
+
+      {/* Editions Grid */}
+      <div>
+        <PageHeader title="Editions Library" />
+
         {!editions || editions.length === 0 ? (
-          <p>No editions uploaded yet.</p>
+          <Card>
+            <div className="p-8 text-center text-stone-500">
+              No editions uploaded yet. Upload your first newspaper edition above.
+            </div>
+          </Card>
         ) : (
-          <div className="editions-grid">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {editions.map((edition: Edition) => (
-              <Link key={edition.id} to={`/edition/${edition.id}`} className="edition-card">
-                <h3>{edition.newspaper_name}</h3>
-                <div className="meta">
-                  <div>Date: {formatDate(edition.edition_date)}</div>
-                  <div>Pages: {edition.num_pages}</div>
-                  <div>Created: {formatDate(edition.created_at)}</div>
-                </div>
-                <div className={`status ${getStatusColor(edition.status)}`}>
-                  {edition.status}
-                </div>
-                {edition.error_message && (
-                  <div className="error-message">
-                    Error: {edition.error_message}
+              <Link key={edition.id} to={`/edition/${edition.id}`}>
+                <Card hover className="h-full">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="text-lg font-semibold text-ink-800 line-clamp-1">
+                      {edition.newspaper_name}
+                    </h3>
+                    <StatusBadge status={edition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'} />
                   </div>
-                )}
+
+                  <div className="space-y-1 text-sm text-stone-600">
+                    <div className="flex justify-between">
+                      <span>Edition Date:</span>
+                      <span className="font-medium">{formatDate(edition.edition_date)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pages:</span>
+                      <span className="font-medium">{edition.num_pages}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Uploaded:</span>
+                      <span className="font-medium">{formatDate(edition.created_at)}</span>
+                    </div>
+                  </div>
+
+                  {edition.error_message && (
+                    <div className="mt-3 p-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded">
+                      {edition.error_message}
+                    </div>
+                  )}
+                </Card>
               </Link>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

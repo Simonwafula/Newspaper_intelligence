@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi } from '../services/api';
 import { Item, ItemType } from '../types';
+import { PageContainer } from '../components/layout';
+import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 
-const EditionDetail: React.FC = () => {
+type TabType = 'stories' | 'ads' | 'classifieds';
+
+const EditionDetail = () => {
   const { id } = useParams<{ id: string }>();
   const editionId = parseInt(id!);
-  const [activeTab, setActiveTab] = useState<'stories' | 'ads' | 'classifieds'>('stories');
+  const [activeTab, setActiveTab] = useState<TabType>('stories');
   const [itemFilter, setItemFilter] = useState<{
     item_type?: ItemType;
     subtype?: string;
@@ -41,7 +45,6 @@ const EditionDetail: React.FC = () => {
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      // Type assertion for axios error structure
       const axiosError = error as { response?: { data?: { detail?: string } } };
       const responseDetail = axiosError.response?.data?.detail;
       alert(`Processing failed: ${responseDetail || errorMessage}`);
@@ -53,7 +56,6 @@ const EditionDetail: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['edition', editionId] });
       queryClient.invalidateQueries({ queryKey: ['processing-status', editionId] });
-      // Auto-start processing after reprocess
       setTimeout(() => {
         processMutation.mutate();
       }, 500);
@@ -66,10 +68,10 @@ const EditionDetail: React.FC = () => {
     },
   });
 
-  const handleTabChange = (tab: 'stories' | 'ads' | 'classifieds') => {
+  const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     const filter: { item_type?: ItemType; subtype?: string } = {};
-    
+
     switch (tab) {
       case 'stories':
         filter.item_type = 'STORY';
@@ -81,7 +83,7 @@ const EditionDetail: React.FC = () => {
         filter.item_type = 'CLASSIFIED';
         break;
     }
-    
+
     setItemFilter(filter);
   };
 
@@ -89,182 +91,240 @@ const EditionDetail: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getStatusColor = (status: string) => {
-    return `status-${status}`;
-  };
-
   if (editionLoading) {
-    return <div className="loading">Loading edition...</div>;
+    return (
+      <PageContainer>
+        <Loading message="Loading edition..." />
+      </PageContainer>
+    );
   }
 
   if (editionError) {
-    return <div className="error">Error loading edition: {(editionError as Error).message}</div>;
+    return (
+      <PageContainer>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          Error loading edition: {(editionError as Error).message}
+        </div>
+      </PageContainer>
+    );
   }
 
   if (!edition) {
-    return <div className="error">Edition not found</div>;
+    return (
+      <PageContainer>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          Edition not found
+        </div>
+      </PageContainer>
+    );
   }
 
+  const tabs: { key: TabType; label: string }[] = [
+    { key: 'stories', label: 'Stories' },
+    { key: 'ads', label: 'Advertisements' },
+    { key: 'classifieds', label: 'Classifieds' },
+  ];
+
   return (
-    <div>
-      <div className="edition-header">
-        <h1>{edition.newspaper_name}</h1>
-        <div className="edition-meta">
-          <span>Date: {formatDate(edition.edition_date)}</span>
-          <span>Pages: {edition.num_pages}</span>
-          <span className={`status ${getStatusColor(edition.status)}`}>
-            {edition.status}
-          </span>
-        </div>
-        <div className="processing-controls">
-          {edition.status === 'UPLOADED' && (
-            <button
-              className="btn"
-              onClick={() => processMutation.mutate()}
-              disabled={processMutation.isPending}
-            >
-              {processMutation.isPending ? 'Processing...' : 'Start Processing'}
-            </button>
-          )}
-          {edition.status === 'READY' && (
-            <button
-              className="btn btn-secondary"
-              onClick={() => reprocessMutation.mutate()}
-              disabled={reprocessMutation.isPending || processMutation.isPending}
-            >
-              {reprocessMutation.isPending || processMutation.isPending ? 'Reprocessing...' : 'Reprocess'}
-            </button>
-          )}
-          {edition.status === 'FAILED' && (
-            <div>
-              <button
-                className="btn"
-                onClick={() => processMutation.mutate()}
-                disabled={processMutation.isPending}
-              >
-                {processMutation.isPending ? 'Retrying...' : 'Retry Processing'}
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => reprocessMutation.mutate()}
-                disabled={reprocessMutation.isPending || processMutation.isPending}
-                style={{ marginLeft: '10px' }}
-              >
-                {reprocessMutation.isPending || processMutation.isPending ? 'Reprocessing...' : 'Reset & Reprocess'}
-              </button>
-            </div>
-          )}
-        </div>
-        
-        {edition.error_message && (
-          <div className="error">
-            Processing Error: {edition.error_message}
-          </div>
-        )}
-
-        {edition.status === 'PROCESSING' && (
-          <div className="processing-status">
-            <div className="status-indicator">
-              <span className="pulse"></span>
-              Processing in progress...
-            </div>
-            <p>The edition is being processed. This may take a few minutes.</p>
-          </div>
-        )}
-
-        {processingStatus && processingStatus.extraction_runs.length > 0 && (
-          <div className="extraction-logs">
-            <h4>Processing History</h4>
-            {processingStatus.extraction_runs.map((run) => (
-              <div key={run.id} className={`log-entry ${run.success ? 'success' : 'error'}`}>
-                <div className="log-header">
-                  <span>Run #{run.id} (v{run.version})</span>
-                  <span className={`status ${run.success ? 'success' : 'error'}`}>
-                    {run.success ? 'Success' : 'Failed'}
-                  </span>
-                </div>
-                <div className="log-details">
-                  Started: {new Date(run.started_at).toLocaleString()}
-                  {run.finished_at && (
-                    <> • Finished: {new Date(run.finished_at).toLocaleString()}</>
-                  )}
-                  {!run.finished_at && <> • Still running...</>}
-                </div>
-                {run.stats && (
-                  <div className="log-stats">
-                    <strong>Stats:</strong> {JSON.stringify(run.stats, null, 2)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+    <PageContainer>
+      {/* Breadcrumb */}
+      <div className="mb-4">
+        <Link to="/" className="text-ink-700 hover:text-ink-800 text-sm">
+          &larr; Back to Editions
+        </Link>
       </div>
 
-      <div className="edition-content">
-        <div className="tabs">
-          <div
-            className={`tab ${activeTab === 'stories' ? 'active' : ''}`}
-            onClick={() => handleTabChange('stories')}
-          >
-            Stories
+      {/* Edition Header */}
+      <Card className="mb-6">
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-ink-800 mb-2">{edition.newspaper_name}</h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-600">
+                <span>Edition: {formatDate(edition.edition_date)}</span>
+                <span>{edition.num_pages} pages</span>
+                <StatusBadge status={edition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'} />
+              </div>
+            </div>
+
+            {/* Processing Controls */}
+            <div className="flex flex-wrap gap-2">
+              {edition.status === 'UPLOADED' && (
+                <Button
+                  onClick={() => processMutation.mutate()}
+                  isLoading={processMutation.isPending}
+                >
+                  Start Processing
+                </Button>
+              )}
+              {edition.status === 'READY' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => reprocessMutation.mutate()}
+                  isLoading={reprocessMutation.isPending || processMutation.isPending}
+                >
+                  Reprocess
+                </Button>
+              )}
+              {edition.status === 'FAILED' && (
+                <>
+                  <Button
+                    onClick={() => processMutation.mutate()}
+                    isLoading={processMutation.isPending}
+                  >
+                    Retry Processing
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => reprocessMutation.mutate()}
+                    isLoading={reprocessMutation.isPending || processMutation.isPending}
+                  >
+                    Reset & Reprocess
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-          <div
-            className={`tab ${activeTab === 'ads' ? 'active' : ''}`}
-            onClick={() => handleTabChange('ads')}
-          >
-            Advertisements
-          </div>
-          <div
-            className={`tab ${activeTab === 'classifieds' ? 'active' : ''}`}
-            onClick={() => handleTabChange('classifieds')}
-          >
-            Classifieds
-          </div>
+
+          {/* Error Message */}
+          {edition.error_message && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              <strong>Processing Error:</strong> {edition.error_message}
+            </div>
+          )}
+
+          {/* Processing Status */}
+          {edition.status === 'PROCESSING' && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mt-4">
+              <div className="flex items-center gap-2 font-medium text-amber-800 mb-1">
+                <span className="pulse-dot"></span>
+                Processing in progress...
+              </div>
+              <p className="text-amber-700 text-sm">
+                The edition is being processed. This may take a few minutes.
+              </p>
+            </div>
+          )}
+
+          {/* Processing History */}
+          {processingStatus && processingStatus.extraction_runs.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-ink-800 mb-3">Processing History</h4>
+              <div className="space-y-3">
+                {processingStatus.extraction_runs.map((run) => (
+                  <div
+                    key={run.id}
+                    className={`p-3 rounded-lg border ${
+                      run.success
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium">
+                        Run #{run.id} (v{run.version})
+                      </span>
+                      <span
+                        className={`text-xs font-medium ${
+                          run.success ? 'text-green-700' : 'text-red-700'
+                        }`}
+                      >
+                        {run.success ? 'Success' : 'Failed'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-stone-600">
+                      Started: {new Date(run.started_at).toLocaleString()}
+                      {run.finished_at && (
+                        <> &bull; Finished: {new Date(run.finished_at).toLocaleString()}</>
+                      )}
+                      {!run.finished_at && <> &bull; Still running...</>}
+                    </div>
+                    {run.stats && (
+                      <pre className="mt-2 p-2 bg-white/50 rounded text-xs font-mono overflow-x-auto">
+                        {JSON.stringify(run.stats, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Content Tabs */}
+      <Card>
+        {/* Tab Navigation */}
+        <div className="flex border-b border-stone-200">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`
+                px-6 py-3 text-sm font-medium transition-colors
+                ${activeTab === tab.key
+                  ? 'text-ink-800 border-b-2 border-ink-800 -mb-px'
+                  : 'text-stone-500 hover:text-ink-700 hover:bg-stone-50'
+                }
+              `}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="items-content">
+        {/* Tab Content */}
+        <div className="p-4">
           {edition.status === 'READY' ? (
             itemsLoading ? (
-              <div className="loading">Loading items...</div>
+              <Loading message="Loading items..." />
             ) : !items || items.length === 0 ? (
-              <p>No {activeTab} found in this edition.</p>
+              <div className="text-center py-8 text-stone-500">
+                No {activeTab} found in this edition.
+              </div>
             ) : (
-              <div className="items-list">
+              <div className="space-y-4">
                 {items.map((item: Item) => (
-                  <div key={item.id} className="item-card">
-                    <h4>
-                      {item.title || 'Untitled'}
-                      <span className={`item-type type-${item.item_type}`}>
-                        {item.item_type}
-                        {item.subtype && `: ${item.subtype}`}
-                      </span>
-                    </h4>
-                    <div className="item-meta">
-                      Page {item.page_number}
+                  <div
+                    key={item.id}
+                    className="p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                      <h4 className="font-semibold text-ink-800">
+                        {item.title || 'Untitled'}
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <ItemTypeBadge type={item.item_type} />
+                        {item.subtype && (
+                          <span className="text-xs text-stone-500">{item.subtype}</span>
+                        )}
+                      </div>
                     </div>
+                    <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
                     {item.text && (
-                      <div className="item-text">
+                      <p className="text-sm text-stone-600 leading-relaxed">
                         {item.text.substring(0, 300)}
                         {item.text.length > 300 && '...'}
-                      </div>
+                      </p>
                     )}
                   </div>
                 ))}
               </div>
             )
           ) : (
-            <div className="processing-message">
-              <p>Edition is not ready for viewing.</p>
-              <p>Status: {edition.status}</p>
+            <div className="text-center py-12">
+              <p className="text-stone-600 mb-2">Edition is not ready for viewing.</p>
+              <p className="text-stone-500 text-sm mb-4">Status: {edition.status}</p>
               {edition.status === 'UPLOADED' && (
-                <p>Click "Start Processing" to begin text extraction and analysis.</p>
+                <p className="text-stone-500 text-sm">
+                  Click "Start Processing" above to begin text extraction and analysis.
+                </p>
               )}
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </Card>
+    </PageContainer>
   );
 };
 

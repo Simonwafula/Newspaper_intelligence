@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { savedSearchesApi } from '../services/api';
 import { SavedSearch, SavedSearchCreate, ItemType } from '../types';
+import { PageContainer, PageHeader } from '../components/layout';
+import { Button, Input, Textarea, Card, Badge, Loading } from '../components/ui';
 
 const SavedSearches = () => {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -22,7 +24,7 @@ const SavedSearches = () => {
       const searches = await savedSearchesApi.getSavedSearches();
       setSavedSearches(searches);
       setError(null);
-    } catch (err) {
+    } catch {
       setError('Failed to load saved searches');
     } finally {
       setLoading(false);
@@ -47,7 +49,7 @@ const SavedSearches = () => {
       });
       setShowCreateForm(false);
       loadSavedSearches();
-    } catch (err) {
+    } catch {
       setError('Failed to create saved search');
     }
   };
@@ -57,7 +59,7 @@ const SavedSearches = () => {
       try {
         await savedSearchesApi.deleteSavedSearch(id);
         loadSavedSearches();
-      } catch (err) {
+      } catch {
         setError('Failed to delete saved search');
       }
     }
@@ -67,7 +69,7 @@ const SavedSearches = () => {
     try {
       await savedSearchesApi.updateSearchMatches(id);
       loadSavedSearches();
-    } catch (err) {
+    } catch {
       setError('Failed to update matches');
     }
   };
@@ -76,7 +78,7 @@ const SavedSearches = () => {
     try {
       await savedSearchesApi.updateAllSearchMatches();
       loadSavedSearches();
-    } catch (err) {
+    } catch {
       setError('Failed to update all matches');
     }
   };
@@ -94,225 +96,191 @@ const SavedSearches = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getItemTypeColor = (itemType: ItemType) => {
+  const getItemTypeVariant = (itemType: ItemType): 'blue' | 'amber' | 'purple' | 'default' => {
     switch (itemType) {
-      case 'STORY': return 'bg-blue-100 text-blue-800';
-      case 'AD': return 'bg-green-100 text-green-800';
-      case 'CLASSIFIED': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'STORY': return 'blue';
+      case 'AD': return 'amber';
+      case 'CLASSIFIED': return 'purple';
+      default: return 'default';
     }
   };
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="text-center">Loading saved searches...</div>
-      </div>
+      <PageContainer maxWidth="4xl">
+        <Loading message="Loading saved searches..." />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Saved Searches</h1>
-        <div className="space-x-2">
-          <button
-            onClick={handleUpdateAllMatches}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Update All Matches
-          </button>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
-            Create Saved Search
-          </button>
-        </div>
-      </div>
+    <PageContainer maxWidth="4xl">
+      <PageHeader
+        title="Saved Searches"
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleUpdateAllMatches}>
+              Update All Matches
+            </Button>
+            <Button onClick={() => setShowCreateForm(true)}>
+              Create Saved Search
+            </Button>
+          </div>
+        }
+      />
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
           {error}
         </div>
       )}
 
+      {/* Create Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">Create Saved Search</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name *</label>
-                <input
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-ink-800 mb-6">Create Saved Search</h2>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <Input
+                  label="Name"
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
+                  placeholder="Enter a name for this search"
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea
+                <Textarea
+                  label="Description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
-                  rows={3}
+                  placeholder="Optional description"
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Search Query *</label>
-                <input
+                <Input
+                  label="Search Query"
                   type="text"
                   required
                   value={formData.query}
                   onChange={(e) => setFormData(prev => ({ ...prev, query: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
                   placeholder="Enter search terms..."
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Item Types</label>
-                <div className="space-x-4">
-                  {(['STORY', 'AD', 'CLASSIFIED'] as const).map(type => (
-                    <label key={type} className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.item_types?.includes(type) || false}
-                        onChange={() => handleItemTypeChange(type)}
-                        className="mr-2"
-                      />
-                      <span className={`px-2 py-1 rounded text-xs ${getItemTypeColor(type)}`}>
-                        {type}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Date From</label>
-                  <input
+                  <label className="block text-sm font-medium text-ink-800 mb-2">Item Types</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(['STORY', 'AD', 'CLASSIFIED'] as const).map(type => (
+                      <label key={type} className="inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.item_types?.includes(type) || false}
+                          onChange={() => handleItemTypeChange(type)}
+                          className="w-4 h-4 rounded text-ink-800 focus:ring-ink-800 mr-2"
+                        />
+                        <Badge variant={getItemTypeVariant(type)}>{type}</Badge>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Date From"
                     type="date"
                     value={formData.date_from}
                     onChange={(e) => setFormData(prev => ({ ...prev, date_from: e.target.value }))}
-                    className="w-full border rounded px-3 py-2"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date To</label>
-                  <input
+                  <Input
+                    label="Date To"
                     type="date"
                     value={formData.date_to}
                     onChange={(e) => setFormData(prev => ({ ...prev, date_to: e.target.value }))}
-                    className="w-full border rounded px-3 py-2"
                   />
                 </div>
-              </div>
 
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="secondary" onClick={() => setShowCreateForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Create
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Card>
         </div>
       )}
 
+      {/* Saved Searches List */}
       {savedSearches.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded">
-          <p className="text-gray-500 mb-4">No saved searches found</p>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
-            Create Your First Saved Search
-          </button>
-        </div>
+        <Card>
+          <div className="p-12 text-center">
+            <p className="text-stone-500 mb-4">No saved searches found</p>
+            <Button onClick={() => setShowCreateForm(true)}>
+              Create Your First Saved Search
+            </Button>
+          </div>
+        </Card>
       ) : (
         <div className="space-y-4">
           {savedSearches.map(search => (
-            <div key={search.id} className="border rounded-lg p-4 bg-white shadow-sm">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{search.name}</h3>
+            <Card key={search.id}>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-ink-800">{search.name}</h3>
                   {search.description && (
-                    <p className="text-gray-600 text-sm mt-1">{search.description}</p>
+                    <p className="text-stone-600 text-sm mt-1">{search.description}</p>
                   )}
                 </div>
-                <div className="flex items-center space-x-2 ml-4">
-                  <span className={`px-2 py-1 rounded text-xs ${search.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge variant={search.is_active ? 'green' : 'default'}>
                     {search.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                  <button
-                    onClick={() => handleUpdateMatches(search.id)}
-                    className="text-blue-500 hover:text-blue-700 text-sm"
-                  >
-                    Update Matches
-                  </button>
-                  <button
-                    onClick={() => handleDelete(search.id)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={() => handleUpdateMatches(search.id)}>
+                    Update
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(search.id)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                <span>Query: <strong>"{search.query}"</strong></span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-600 mb-3">
+                <span>Query: <strong className="text-ink-800">"{search.query}"</strong></span>
                 {search.item_types && search.item_types.length > 0 && (
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center gap-1">
                     <span>Types:</span>
                     {search.item_types.map(type => (
-                      <span key={type} className={`px-2 py-1 rounded text-xs ${getItemTypeColor(type)}`}>
-                        {type}
-                      </span>
+                      <Badge key={type} variant={getItemTypeVariant(type)}>{type}</Badge>
                     ))}
                   </div>
                 )}
               </div>
 
               {(search.date_from || search.date_to) && (
-                <div className="text-sm text-gray-600 mb-2">
+                <div className="text-sm text-stone-600 mb-3">
                   {search.date_from && <span>From: {formatDate(search.date_from)}</span>}
-                  {search.date_from && search.date_to && <span> | </span>}
+                  {search.date_from && search.date_to && <span className="mx-2">|</span>}
                   {search.date_to && <span>To: {formatDate(search.date_to)}</span>}
                 </div>
               )}
 
-              <div className="flex justify-between items-center text-sm text-gray-500">
+              <div className="flex flex-wrap justify-between items-center text-sm text-stone-500 pt-3 border-t border-stone-100">
                 <div>
-                  <span className="font-semibold text-blue-600">{search.match_count}</span> matches found
+                  <span className="font-semibold text-ink-800">{search.match_count}</span> matches
                   {search.last_run && (
-                    <span> (updated {formatDate(search.last_run)})</span>
+                    <span className="ml-1">(updated {formatDate(search.last_run)})</span>
                   )}
                 </div>
-                <div>
-                  Created {formatDate(search.created_at)}
-                </div>
+                <div>Created {formatDate(search.created_at)}</div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 
