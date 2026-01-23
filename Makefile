@@ -25,6 +25,13 @@ help:
 	@echo "  build-backend     - Build backend (dependencies + lint + test)"
 	@echo "  build-frontend    - Build frontend (typecheck + vite build)"
 	@echo ""
+	@echo "Database & Seeding:"
+	@echo "  db-upgrade       - Run database migrations"
+	@echo "  db-create MSG=x  - Create new migration with message"
+	@echo "  seed-admin       - Create admin user (use ARGS for custom email/password)"
+	@echo "  seed-categories  - Seed default topic categories"
+	@echo "  seed-all         - Run migrations + seed admin + seed categories"
+	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean            - Clean build artifacts and cache"
 	@echo "  install-backend   - Install backend Python dependencies"
@@ -120,6 +127,18 @@ db-upgrade:
 db-create:
 	@echo "Creating new database migration..."
 	@cd backend && PYTHONPATH=$$PWD alembic revision --autogenerate -m "$(MSG)"
+
+# Seeding commands
+seed-admin:
+	@echo "Creating admin user..."
+	@cd backend && PYTHONPATH=$$PWD python -m app.services.seed_users $(ARGS)
+
+seed-categories:
+	@echo "Seeding default categories..."
+	@cd backend && PYTHONPATH=$$PWD python -m app.services.seed_categories
+
+seed-all: db-upgrade seed-admin seed-categories
+	@echo "Database seeded with admin user and categories"
 
 # Development shortcuts
 run-backend:
