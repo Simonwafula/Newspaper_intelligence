@@ -3,7 +3,7 @@ Webhook management API endpoints.
 """
 
 import secrets
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, HttpUrl
@@ -403,7 +403,7 @@ async def test_webhook(
         "event": "test",
         "message": "This is a test webhook delivery",
         "webhook_id": webhook.id,
-        "timestamp": datetime.now(UTC).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     payload_json = json.dumps(test_payload, default=str)
@@ -412,7 +412,7 @@ async def test_webhook(
         "Content-Type": "application/json",
         "X-Webhook-Event": "test",
         "X-Webhook-Delivery-Id": "test",
-        "X-Webhook-Timestamp": datetime.now(UTC).isoformat(),
+        "X-Webhook-Timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     if webhook.secret:
