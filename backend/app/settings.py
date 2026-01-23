@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env", os.path.join(_backend_root, ".env")),
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Database
