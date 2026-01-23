@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class EditionStatus(str, Enum):
@@ -38,6 +38,8 @@ class EditionCreate(BaseModel):
 
 
 class EditionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     newspaper_name: str
     edition_date: datetime
@@ -48,11 +50,10 @@ class EditionResponse(BaseModel):
     created_at: datetime
     processed_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
-
 
 class PageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     edition_id: int
     page_number: int
@@ -60,11 +61,10 @@ class PageResponse(BaseModel):
     extracted_text: str | None = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class ItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     edition_id: int
     page_id: int | None = None
@@ -81,9 +81,6 @@ class ItemResponse(BaseModel):
     location_info_json: dict | None = None
     classification_details_json: dict | None = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ItemWithCategoriesResponse(ItemResponse):
@@ -123,6 +120,8 @@ class SavedSearchCreate(BaseModel):
 
 
 class SavedSearchResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: str | None = None
@@ -135,9 +134,6 @@ class SavedSearchResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # User Authentication Schemas
@@ -160,6 +156,8 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     full_name: str | None
@@ -168,9 +166,6 @@ class UserResponse(BaseModel):
     is_verified: bool
     last_login: datetime | None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class UserUpdate(BaseModel):
@@ -182,6 +177,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    user_role: UserRole
 
 
 class TokenData(BaseModel):
@@ -208,6 +204,8 @@ class AccessRequestCreate(BaseModel):
 
 
 class AccessRequestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     full_name: str
     email: str
@@ -220,9 +218,6 @@ class AccessRequestResponse(BaseModel):
     updated_at: datetime
     processed_at: datetime | None
     admin_notes: str | None
-
-    class Config:
-        from_attributes = True
 
 
 class AccessRequestAdminResponse(AccessRequestResponse):
@@ -246,18 +241,19 @@ class HealthResponse(BaseModel):
 # Public API schemas - for unauthenticated access
 class EditionPublicResponse(BaseModel):
     """Public edition information (covers-only access)."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     newspaper_name: str
     edition_date: datetime
     num_pages: int
     status: str
 
-    class Config:
-        from_attributes = True
-
 
 class ItemPublicResponse(BaseModel):
     """Public item information (title and preview text only)."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     edition_id: int
     page_number: int
@@ -265,9 +261,6 @@ class ItemPublicResponse(BaseModel):
     subtype: str | None = None
     title: str | None = None
     text: str | None = None  # Preview text only (200 chars)
-
-    class Config:
-        from_attributes = True
 
 
 # Category Schemas
@@ -298,12 +291,11 @@ class CategoryUpdate(BaseModel):
 
 class CategoryResponse(CategoryBase):
     """Schema for category response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CategoryWithStats(CategoryResponse):
@@ -323,6 +315,8 @@ class ItemCategoryCreate(BaseModel):
 
 class ItemCategoryResponse(BaseModel):
     """Schema for item category response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     item_id: int
     category_id: int
@@ -335,13 +329,8 @@ class ItemCategoryResponse(BaseModel):
     # Include category details
     category: CategoryResponse
 
-    class Config:
-        from_attributes = True
 
-
-class ItemWithCategories(ItemResponse):
-    """Item response with categories included."""
-    categories: list[ItemCategoryResponse] = Field(default_factory=list)
+# ItemWithCategoriesResponse is defined above (line 89) - use that instead of a duplicate
 
 
 class ClassificationStats(BaseModel):
@@ -376,6 +365,8 @@ class FavoriteCreate(BaseModel):
 
 
 class FavoriteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     item_id: int
@@ -384,9 +375,6 @@ class FavoriteResponse(BaseModel):
 
     # Optional nested Item (if requested)
     item: ItemResponse | None = None
-
-    class Config:
-        from_attributes = True
 
 
 # Collection Schemas
@@ -405,6 +393,8 @@ class CollectionUpdate(BaseModel):
 
 
 class CollectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     name: str
@@ -414,9 +404,6 @@ class CollectionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class CollectionItemCreate(BaseModel):
     item_id: int
@@ -424,6 +411,8 @@ class CollectionItemCreate(BaseModel):
 
 
 class CollectionItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     collection_id: int
     item_id: int
@@ -433,9 +422,6 @@ class CollectionItemResponse(BaseModel):
 
     # Nested item details
     item: ItemResponse | None = None
-
-    class Config:
-        from_attributes = True
 
 
 class CollectionWithItemsResponse(CollectionResponse):

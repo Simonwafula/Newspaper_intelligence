@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc, func
@@ -19,7 +19,7 @@ async def get_trends(
     db: Session = Depends(get_db)
 ):
     """Get topic and volume trends for the dashboard."""
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(UTC) - timedelta(days=days)
 
     # 1. Volume trends (items per day)
     volume_data = (

@@ -3,7 +3,7 @@ API endpoints for category management and item classification.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc, func
@@ -22,7 +22,7 @@ from app.schemas import (
     ClassificationStats,
     ItemCategoryCreate,
     ItemCategoryResponse,
-    ItemWithCategories,
+    ItemWithCategoriesResponse,
 )
 from app.services.category_classifier import CategoryClassifier
 
@@ -67,7 +67,7 @@ async def get_category(category_id: int, db: Session = Depends(get_db)):
     ).scalar()
 
     # Get recent items (last 30 days)
-    recent_date = datetime.utcnow() - timedelta(days=30)
+    recent_date = datetime.now(UTC) - timedelta(days=30)
     recent_items = db.query(func.count(ItemCategory.id)).filter(
         ItemCategory.category_id == category_id,
         ItemCategory.created_at >= recent_date
@@ -155,7 +155,7 @@ async def delete_category(
 
 
 # Items in Category Endpoints
-@router.get("/{category_id}/items", response_model=list[ItemWithCategories])
+@router.get("/{category_id}/items", response_model=list[ItemWithCategoriesResponse])
 async def get_items_in_category(
     category_id: int,
     skip: int = Query(0, ge=0),
@@ -203,7 +203,7 @@ async def get_items_in_category(
             )
 
         result.append(
-            ItemWithCategories(
+            ItemWithCategoriesResponse(
                 **item.__dict__,
                 categories=item_categories
             )
@@ -242,7 +242,7 @@ async def add_item_category(
         existing.confidence = classification.confidence
         existing.source = "manual"
         existing.notes = classification.notes
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = datetime.now(UTC)
         db.commit()
         db.refresh(existing)
         item_category = existing
@@ -298,7 +298,7 @@ async def batch_classify_items(
     admin_user: User = Depends(get_admin_user)
 ):
     """Run batch classification on specified items (admin only)."""
-    start_time = datetime.utcnow()
+    start_time = datetime.now(UTC)
 
     # Verify items exist
     items = db.query(Item).filter(Item.id.in_(request.item_ids)).all()
@@ -317,7 +317,7 @@ async def batch_classify_items(
             clear_existing=request.clear_existing
         )
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(UTC) - start_time).total_seconds()
 
         response = BatchClassificationResponse(
             total_items=len(items),

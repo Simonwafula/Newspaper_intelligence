@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -61,7 +61,7 @@ class SavedSearchService:
         db_search.item_types = [t.value for t in search_update.item_types] if search_update.item_types else None
         db_search.date_from = search_update.date_from
         db_search.date_to = search_update.date_to
-        db_search.updated_at = datetime.utcnow()
+        db_search.updated_at = datetime.now(UTC)
 
         self.db.commit()
         self.db.refresh(db_search)
@@ -143,4 +143,4 @@ class SavedSearchService:
 
         # Update search record
         search.match_count = match_count
-        search.last_run = datetime.utcnow()
+        search.last_run = datetime.now(UTC)

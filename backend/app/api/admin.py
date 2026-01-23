@@ -157,8 +157,8 @@ async def update_access_request(
     access_request.status = request_update.status.value
     access_request.admin_notes = request_update.admin_notes
     access_request.processed_by_user_id = admin_user.id
-    from datetime import datetime
-    access_request.processed_at = datetime.utcnow()
+    from datetime import UTC, datetime
+    access_request.processed_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(access_request)

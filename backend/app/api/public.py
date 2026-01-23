@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import and_
@@ -24,7 +24,7 @@ def check_rate_limit(request: Request, limit: int = 5, window_minutes: int = 60)
     client_ip = request.client.host if request.client else "unknown"
 
     # Clean old entries
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     cutoff = now - timedelta(minutes=window_minutes)
 
     # Check IP limit

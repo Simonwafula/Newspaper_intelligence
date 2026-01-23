@@ -1,7 +1,7 @@
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -210,16 +210,16 @@ class ProcessingService:
 
             # Update edition status
             edition.status = EditionStatus.READY  # type: ignore
-            edition.processed_at = datetime.utcnow()  # type: ignore
+            edition.processed_at = datetime.now(UTC)  # type: ignore
 
             # Update extraction run
             extraction_run.success = True
-            extraction_run.finished_at = datetime.utcnow()
+            extraction_run.finished_at = datetime.now(UTC)
             stats.update({
                 'pages_processed': pages_processed,
                 'pages_with_ocr': pages_with_ocr,
                 'total_items': total_items,
-                'processing_time': (datetime.utcnow() - extraction_run.started_at).total_seconds()
+                'processing_time': (datetime.now(UTC) - extraction_run.started_at).total_seconds()
             })
             extraction_run.stats_json = dict(stats)
 
@@ -261,7 +261,7 @@ class ProcessingService:
 
             # Update extraction run
             extraction_run.success = False
-            extraction_run.finished_at = datetime.utcnow()
+            extraction_run.finished_at = datetime.now(UTC)
 
             db.commit()
             return False

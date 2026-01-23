@@ -3,6 +3,7 @@ Tests for webhook functionality.
 """
 
 import pytest
+
 from app.api.auth import get_current_user
 from app.main import app
 from app.models import User, UserRole, Webhook
@@ -24,7 +25,7 @@ def test_user(db):
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     # Store user data
     user_data = User(
         id=user.id,
@@ -39,14 +40,14 @@ def test_user(db):
     # Override get_current_user to return this user
     async def override_get_current_user():
         return user_data
-    
+
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
+
     # Create access token
     token = create_access_token({"sub": str(user.id)})
-    
+
     yield {"id": user.id, "token": token, "user": user_data}
-    
+
     # Clear auth override after test
     if get_current_user in app.dependency_overrides:
         del app.dependency_overrides[get_current_user]

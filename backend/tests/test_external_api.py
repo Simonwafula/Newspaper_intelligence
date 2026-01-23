@@ -3,6 +3,7 @@ Tests for external API endpoints with API key authentication.
 """
 
 import pytest
+
 from app.api.external import get_api_key_user
 from app.main import app
 from app.models import Edition, Item, User, UserAPIKey, UserRole
@@ -50,7 +51,7 @@ def test_api_key(db, test_user):
     # Override get_api_key_user to return the test user
     async def override_get_api_key_user():
         return test_user["user"]
-    
+
     app.dependency_overrides[get_api_key_user] = override_get_api_key_user
     yield api_key
     # Cleanup override

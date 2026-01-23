@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -65,13 +65,14 @@ async def login_user(
     )
 
     # Update last login
-    db.query(User).filter(User.id == user.id).update({"last_login": datetime.utcnow()})
+    db.query(User).filter(User.id == user.id).update({"last_login": datetime.now(UTC)})
     db.commit()
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "expires_in": settings.access_token_expire_minutes * 60
+        "expires_in": settings.access_token_expire_minutes * 60,
+        "user_role": user.role
     }
 
 

@@ -4,7 +4,7 @@ External API router for third-party application access with API key authenticati
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -45,7 +45,7 @@ class APIKeyManager:
             key_hash=key_hash,
             key_prefix=api_key[:10],  # First 10 chars for identification
             description=description,
-            expires_at=datetime.utcnow() + timedelta(days=365),  # 1 year expiry
+            expires_at=datetime.now(UTC) + timedelta(days=365),  # 1 year expiry
             created_from_ip="system",
             user_agent="system_generated"
         )
@@ -69,7 +69,7 @@ class APIKeyManager:
                     UserAPIKey.is_active,
                     or_(
                         UserAPIKey.expires_at.is_(None),
-                        UserAPIKey.expires_at > datetime.utcnow()
+                        UserAPIKey.expires_at > datetime.now(UTC)
                     )
                 )
             )
@@ -80,7 +80,7 @@ class APIKeyManager:
             return None
 
         # Update last used timestamp and request count
-        api_key_record.last_used_at = datetime.utcnow()
+        api_key_record.last_used_at = datetime.now(UTC)
         api_key_record.total_requests += 1
         self.db.commit()
 
@@ -88,7 +88,7 @@ class APIKeyManager:
 
     def check_rate_limit(self, api_key_record: UserAPIKey) -> bool:
         """Check if API key is within rate limits."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         hour_ago = now - timedelta(hours=1)
         day_ago = now - timedelta(days=1)
 
@@ -217,7 +217,7 @@ async def generate_api_key(
         "name": name,
         "description": description,
         "rate_limit_per_hour": rate_limit_per_hour,
-        "expires_at": (datetime.utcnow() + timedelta(days=365)).isoformat()
+        "expires_at": (datetime.now(UTC) + timedelta(days=365)).isoformat()
     }
 
 

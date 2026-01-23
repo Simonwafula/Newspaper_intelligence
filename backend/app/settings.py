@@ -1,10 +1,18 @@
 import os
 import secrets
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Calculate backend root for env file path
+_backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=(".env", os.path.join(_backend_root, ".env")),
+        case_sensitive=False,
+    )
+
     # Database
     database_url: str = "sqlite:///./dev.db"
 
@@ -30,11 +38,6 @@ class Settings(BaseSettings):
     secret_key: str = secrets.token_urlsafe(32)  # Generate random key if not set
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
-
-    class Config:
-        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        env_file = (".env", os.path.join(backend_root, ".env"))
-        case_sensitive = False
 
 
 def get_settings() -> Settings:

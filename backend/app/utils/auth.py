@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -49,9 +49,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     """
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)

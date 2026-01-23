@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -69,7 +69,7 @@ def create_user(db: Session, user_create: UserCreate) -> User:
         full_name=user_create.full_name,
         role=user_create.role.value,
         is_active=True,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
 
     db.add(db_user)
@@ -102,7 +102,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         return None
 
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(UTC)
     db.commit()
 
     return user
@@ -126,7 +126,8 @@ def create_user_access_token(user: User) -> dict:
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "expires_in": access_token_expires
+        "expires_in": access_token_expires,
+        "user_role": user.role
     }
 
 
@@ -148,7 +149,7 @@ def update_user(db: Session, user: User, user_update: UserUpdate) -> User:
     if user_update.password is not None:
         user.hashed_password = get_password_hash(user_update.password)
 
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(user)
@@ -168,7 +169,7 @@ def deactivate_user(db: Session, user: User) -> User:
         Updated User object
     """
     user.is_active = False
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(user)

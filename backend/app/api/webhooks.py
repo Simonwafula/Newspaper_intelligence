@@ -3,10 +3,10 @@ Webhook management API endpoints.
 """
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -40,6 +40,8 @@ class WebhookUpdate(BaseModel):
 
 class WebhookResponse(BaseModel):
     """Schema for webhook response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     url: str
@@ -56,9 +58,6 @@ class WebhookResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class WebhookWithSecret(WebhookResponse):
     """Webhook response including secret (only shown on creation)."""
@@ -67,6 +66,8 @@ class WebhookWithSecret(WebhookResponse):
 
 class WebhookDeliveryResponse(BaseModel):
     """Schema for webhook delivery response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     webhook_id: int
     event_type: str
@@ -77,9 +78,6 @@ class WebhookDeliveryResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     delivered_at: datetime | None
-
-    class Config:
-        from_attributes = True
 
 
 class WebhookTestResponse(BaseModel):
@@ -403,7 +401,7 @@ async def test_webhook(
         "event": "test",
         "message": "This is a test webhook delivery",
         "webhook_id": webhook.id,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(UTC).isoformat()
     }
 
     payload_json = json.dumps(test_payload, default=str)
@@ -412,7 +410,7 @@ async def test_webhook(
         "Content-Type": "application/json",
         "X-Webhook-Event": "test",
         "X-Webhook-Delivery-Id": "test",
-        "X-Webhook-Timestamp": datetime.now(timezone.utc).isoformat(),
+        "X-Webhook-Timestamp": datetime.now(UTC).isoformat(),
     }
 
     if webhook.secret:
