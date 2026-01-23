@@ -3,6 +3,12 @@
 
 .PHONY: help dev lint test clean install-backend install-frontend build-backend build-frontend build ci check-deps
 
+# Load backend .env layer if it exists (for local or server environment variables)
+ifneq (,$(wildcard backend/.env))
+    include backend/.env
+    export
+endif
+
 # Default target
 help:
 	@echo "Newspaper Intelligence - Available commands:"
@@ -122,6 +128,7 @@ ci: lint test build
 # Database commands
 db-upgrade:
 	@echo "Running database migrations..."
+	@echo "Using Database: $${DATABASE_URL:-Defaulting to SQLite (from app settings)}"
 	@cd backend && PYTHONPATH=$$PWD alembic upgrade head
 
 db-create:
