@@ -1,34 +1,63 @@
 # Newspaper PDF Intelligence
 
-A web application that transforms newspaper PDFs into searchable, structured intelligence. Upload newspaper editions, and the system extracts articles, advertisements, and classifieds using OCR and layout analysis.
+A web application that transforms newspaper PDFs into searchable, structured intelligence with role-based access control. Upload newspaper editions, and system extracts articles, advertisements, and classifieds using OCR and layout analysis.
 
 ## Features
 
+- **Role-Based Access Control**: Public users see covers only, Readers can search full content, Admins have full access
+- **Invite-Based Registration**: No public signup - users must request access and be approved by admins
+- **JWT Authentication**: Secure token-based authentication with user roles (READER, ADMIN)
 - **PDF Upload & Processing**: Upload newspaper PDFs with automatic text extraction and OCR fallback
 - **Smart Content Analysis**: Automatically classify content into stories, ads, and classifieds
 - **Searchable Content**: Full-text search across all processed editions
 - **Categorized Browsing**: Browse content by type (stories, advertisements, classifieds)
-- **REST API**: Complete backend API for integration and testing
+- **Access Request Management**: Admin panel to review and approve access requests
+
+## Access Levels
+
+### Public Access (No Authentication)
+- Browse newspaper covers gallery
+- View basic edition metadata
+- Submit access requests
+
+### Reader Access (Authenticated)
+- Full text search and content access
+- Save and manage searches
+- View all extracted content
+- Cannot export or upload content
+
+### Admin Access (Authenticated + Admin Role)
+- All Reader capabilities
+- Upload and manage editions
+- Export data in CSV format
+- Manage user accounts
+- Approve/deny access requests
+- Processing controls and logs
 
 ## Current Status
 
 ✅ **Implemented:**
+- User authentication system with JWT tokens
+- Role-based access control (READER/ADMIN)
+- Public cover gallery (no authentication required)
+- Invite-based access request system with rate limiting
+- Protected API endpoints with proper permissions
+- Admin management interface
 - Backend FastAPI application with SQLAlchemy models
 - PDF processing pipeline with PyMuPDF
 - OCR integration with Tesseract (optional)
 - Layout analysis and content classification
-- Database models for editions, pages, items, and extraction runs
+- Database models for users and access requests
 - Complete CRUD API for editions and items
 - Full-text search functionality
 - React frontend with TypeScript
-- File upload and processing interface
-- Edition detail view with categorized items
 - Responsive UI with modern styling
 
 🔧 **Technical Stack:**
 - **Backend**: FastAPI, SQLAlchemy, PyMuPDF, Tesseract
 - **Frontend**: React, TypeScript, Vite, TanStack Query
 - **Database**: SQLite (development), PostgreSQL (production)
+- **Authentication**: JWT tokens with role-based permissions
 - **Styling**: Custom CSS with responsive design
 
 ## Quick Start
@@ -53,33 +82,51 @@ npm run dev
 ```
 
 The application will be available at:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:8007
 - API Documentation: http://localhost:8007/docs
 
 ## Usage
 
-1. **Upload Edition**: Use the upload form to add newspaper PDFs
-2. **Process Content**: Click "Start Processing" to extract and analyze content
-3. **Browse Results**: View extracted stories, ads, and classifieds by category
-4. **Search Content**: Use the search functionality to find specific content
+1. **Public Access**: Browse covers gallery at homepage without authentication
+2. **Request Access**: Submit access request form for admin approval
+3. **Reader Login**: Sign in with approved credentials to access full content
+4. **Admin Functions**: Manage users, editions, and access requests
+5. **Upload & Process**: Upload PDFs and trigger content extraction
+6. **Browse & Search**: View categorized content and use full-text search
 
 ## API Endpoints
 
-### Editions
-- `POST /api/editions/` - Upload new edition
-- `GET /api/editions/` - List all editions
-- `GET /api/editions/{id}` - Get edition details
-- `POST /api/editions/{id}/process` - Start processing
-- `POST /api/editions/{id}/reprocess` - Reprocess edition
+### Public Endpoints (No Authentication)
+- `GET /api/public/editions` - List newspaper editions (covers only)
+- `POST /api/public/access-requests` - Submit access request
 
-### Items
-- `GET /api/items/edition/{edition_id}/items` - Get items for edition
+### Authentication
+- `POST /api/auth/login` - Login and receive JWT token
+- `GET /api/auth/me` - Get current user information
+- `POST /api/auth/logout` - Logout (client-side token removal)
+
+### Reader Endpoints (Authentication Required)
+- `GET /api/editions/` - List editions with full details
+- `GET /api/editions/{id}` - Get edition with full details
+- `GET /api/items/edition/{edition_id}/items` - Get items in edition
 - `GET /api/items/item/{item_id}` - Get specific item
-
-### Search
 - `GET /api/search/edition/{edition_id}/search` - Search within edition
 - `GET /api/search/search` - Search across all editions
+- `GET /api/saved-searches` - List saved searches
+- `POST /api/saved-searches` - Create saved search
+
+### Admin-Only Endpoints (Admin Role Required)
+- `POST /api/editions/` - Upload new edition
+- `DELETE /api/editions/{id}` - Delete edition
+- `POST /api/editions/{id}/process` - Start processing
+- `GET /api/export/editions/{id}/export` - Export edition data
+- `GET /api/admin/users` - List users
+- `POST /api/admin/users` - Create user
+- `PUT /api/admin/users/{id}` - Update user
+- `DELETE /api/admin/users/{id}` - Delete user
+- `GET /api/admin/access-requests` - List access requests
+- `PUT /api/admin/access-requests/{id}` - Approve/reject access request
 
 ### Health
 - `GET /api/healthz` - Health check
@@ -95,6 +142,10 @@ MIN_CHARS_FOR_NATIVE_TEXT=200
 OCR_ENABLED=true
 OCR_LANGUAGES=eng
 DEBUG=false
+
+# Authentication (required for production)
+SECRET_KEY=your-jwt-secret-key
+ADMIN_TOKEN=your-secure-admin-token
 ```
 
 ## File Structure
@@ -136,98 +187,37 @@ cd backend && ruff check && mypy .
 cd frontend && npm run lint
 ```
 
+## Access Control & Security
+
+### User Roles
+- **Public**: No authentication, can view covers and submit access requests
+- **Reader**: Authenticated user, can read and search all content
+- **Admin**: Authenticated with admin role, full system access
+
+### Security Features
+- JWT-based authentication with expiration
+- Rate limiting on access requests
+- Bot protection with honeypot fields
+- Role-based API permissions
+- Admin token protection for sensitive operations
+
+### Data Access Rules
+- Public users see only covers and metadata
+- Readers can view all extracted content but cannot export
+- Admins can upload, export, and manage users
+- All permissions enforced at API and UI levels
+
 ## Deployment
 
 ### Production Deployment (VPS)
 
-This section covers deploying to a production VPS with OpenLiteSpeed and systemd.
+This section covers deploying to a production VPS with systemd.
 
 #### Prerequisites
 
 - Linux server (Ubuntu/CentOS) with sudo access
-- OpenLiteSpeed web server with CyberPanel
-- Python 3.8+ and Node.js 16+
 - PostgreSQL database (recommended for production)
-- Domain configured to point to the VPS
-
-#### Quick Deploy
-
-1. **Clone the repository:**
-```bash
-git clone <your-repo-url> /home/mag.mstatilitechnologies.com/public_html
-cd /home/mag.mstatilitechnologies.com/public_html
-```
-
-2. **Configure environment:**
-```bash
-# Create environment file
-cp .env.example .env
-# Edit .env with production settings
-```
-
-3. **Run the deployment script:**
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
-
-#### Manual Deployment Steps
-
-1. **Setup directories and permissions:**
-```bash
-# Create required directories
-mkdir -p /home/mag.mstatilitechnologies.com/{storage,logs}
-chown -R magms2596:magms2596 /home/mag.mstatilitechnologies.com/{storage,logs}
-```
-
-2. **Setup Python environment:**
-```bash
-cd /home/mag.mstatilitechnologies.com
-python3 -m venv .venv
-source .venv/bin/activate
-cd public_html/backend
-pip install -r requirements.txt
-```
-
-3. **Configure environment variables:**
-```bash
-# Create /home/mag.mstatilitechnologies.com/.env
-DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/dbname
-STORAGE_PATH=/home/mag.mstatilitechnologies.com/storage
-LOG_PATH=/home/mag.mstatilitechnologies.com/logs
-DEBUG=false
-ADMIN_TOKEN=your-secure-admin-token
-OCR_ENABLED=true
-OCR_LANGUAGES=eng
-```
-
-4. **Run database migrations:**
-```bash
-cd /home/mag.mstatilitechnologies.com/public_html/backend
-export PYTHONPATH=/home/mag.mstatilitechnologies.com/public_html
-alembic upgrade head
-```
-
-5. **Build frontend:**
-```bash
-cd /home/mag.mstatilitechnologies.com/public_html/frontend
-npm install
-npm run build
-```
-
-6. **Setup systemd service:**
-```bash
-# Copy service template
-sudo cp deploy/systemd/mag-newspaper-api.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable mag-newspaper-api
-sudo systemctl start mag-newspaper-api
-```
-
-7. **Configure OpenLiteSpeed:**
-   - Set up reverse proxy from `/` and `/api` to `http://127.0.0.1:8007`
-   - Configure static file serving for `frontend/dist`
-   - Enable HTTPS with SSL certificate
+- Domain configured to point to VPS
 
 #### Environment Variables
 
@@ -237,85 +227,77 @@ Required for production:
 DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/newspaper_db
 
 # Paths
-STORAGE_PATH=/home/mag.mstatilitechnologies.com/storage
-LOG_PATH=/home/mag.mstatilitechnologies.com/logs
+STORAGE_PATH=/home/newspaper/storage
 
 # Settings
 DEBUG=false
-ADMIN_TOKEN=your-secure-token-here
+SECRET_KEY=your-jwt-secret-key
+ADMIN_TOKEN=your-secure-admin-token
 
 # OCR (optional)
 OCR_ENABLED=true
 OCR_LANGUAGES=eng
 ```
 
+#### Manual Deployment Steps
+
+1. **Setup directories and permissions:**
+```bash
+mkdir -p /home/newspaper/{storage,logs}
+chown -R newspaper:www-data /home/newspaper/{storage,logs}
+```
+
+2. **Setup Python environment:**
+```bash
+cd /home/newspaper
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. **Run database migrations:**
+```bash
+export PYTHONPATH=/home/newspaper
+alembic upgrade head
+```
+
+4. **Build frontend:**
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+5. **Setup systemd service:**
+```bash
+sudo cp deploy/systemd/newspaper-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable newspaper-api
+sudo systemctl start newspaper-api
+```
+
 #### Service Management
 
 ```bash
 # Check service status
-sudo systemctl status mag-newspaper-api
+sudo systemctl status newspaper-api
 
 # View logs
-sudo journalctl -u mag-newspaper-api -f
+sudo journalctl -u newspaper-api -f
 
 # Restart service
-sudo systemctl restart mag-newspaper-api
-
-# Stop service
-sudo systemctl stop mag-newspaper-api
+sudo systemctl restart newspaper-api
 ```
 
-#### Troubleshooting
-
-**Service won't start:**
-```bash
-# Check service status for errors
-sudo systemctl status mag-newspaper-api
-
-# Check detailed logs
-sudo journalctl -u mag-newspaper-api -n 50
-
-# Check environment file
-cat /home/mag.mstatilitechnologies.com/.env
-```
-
-**Database connection issues:**
-```bash
-# Test database connection
-psql $DATABASE_URL
-
-# Check if migrations ran
-cd /home/mag.mstatilitechnologies.com/public_html/backend
-alembic current
-```
-
-**Permission issues:**
-```bash
-# Fix storage permissions
-sudo chown -R magms2596:magms2596 /home/mag.mstatilitechnologies.com/storage
-sudo chmod -R 755 /home/mag.mstatilitechnologies.com/storage
-```
-
-**OpenLiteSpeed proxy issues:**
-- Check OLS error logs: `/usr/local/lsws/logs/error.log`
-- Verify backend is accessible: `curl http://127.0.0.1:8007/api/healthz`
-- Check proxy configuration in CyberPanel
-
-#### Security Considerations
+## Security Considerations
 
 1. **Enable HTTPS:** Always use SSL/TLS in production
 2. **Firewall:** Configure firewall to only allow necessary ports
 3. **Admin Token:** Use a strong, random `ADMIN_TOKEN`
-4. **Database Security:** Use strong passwords and limit database access
-5. **File Permissions:** Ensure storage directories are not web-accessible
-6. **Regular Updates:** Keep dependencies and system packages updated
-
-#### Performance Optimization
-
-1. **Database:** Add indexes for frequently queried fields
-2. **Caching:** Consider Redis for session storage and caching
-3. **CDN:** Use CDN for static assets in production
-4. **Monitoring:** Set up monitoring for service health and performance
+4. **JWT Secret:** Use a secure, random `SECRET_KEY`
+5. **Database Security:** Use strong passwords and limit database access
+6. **File Permissions:** Ensure storage directories are not web-accessible
+7. **Regular Updates:** Keep dependencies and system packages updated
 
 ## License
 

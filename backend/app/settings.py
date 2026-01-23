@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24  # 24 hours
 
     class Config:
-        env_file = ".env"
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        env_file = (".env", os.path.join(backend_root, ".env"))
         case_sensitive = False
 
 

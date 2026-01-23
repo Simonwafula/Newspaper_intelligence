@@ -1,173 +1,126 @@
-# Permissions Matrix - Newspaper PDF Intelligence
+# Permissions Matrix
 
-## Current Implementation Analysis
+This document defines the role-based access control for Newspaper Intelligence.
 
-### Authentication State
-- **User Model**: ❌ **NOT IMPLEMENTED** - No User model with roles exists
-- **Authentication**: ❌ **NOT IMPLEMENTED** - No login/logout, JWT, or session system
-- **Authorization**: ⚠️ **PARTIAL** - Only admin token protection for write operations
+## User Roles
 
-### Current API Surface
+- **Public**: Unauthenticated users
+- **Reader**: Authenticated users with read access (formerly USER)
+- **Admin**: Authenticated users with full system access
 
-| Endpoint Group | Public | Reader | Admin | Current Status | Issues |
-|---|---|---|---|---|---|
-| **Editions** |
-| GET /api/editions (list) | ❌ | ✅ | ✅ | Admin token NOT required | Should be public for covers only |
-| GET /api/editions/{id} (detail) | ❌ | ✅ | ✅ | Admin token NOT required | No public endpoint exists |
-| POST /api/editions (upload) | ❌ | ❌ | ✅ | Admin token REQUIRED | ✅ Correct |
-| DELETE /api/editions/{id} | ❌ | ❌ | ✅ | Admin token REQUIRED | ✅ Correct |
-| POST /api/editions/{id}/reprocess | ❌ | ❌ | ✅ | Admin token REQUIRED | ✅ Correct |
-| **Items** |
-| GET /api/items/edition/{id}/items | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| GET /api/items/item/{id} | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| **Search** |
-| GET /api/search/edition/{id}/search | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| GET /api/search/search (global) | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| **Export** |
-| GET /api/export/edition/{id}/export/{item_type}.csv | ❌ | ❌ | ✅ | Admin token NOT required | ❌ **MAJOR SECURITY ISSUE** |
-| GET /api/export/edition/{id}/export/all.csv | ❌ | ❌ | ✅ | Admin token NOT required | ❌ **MAJOR SECURITY ISSUE** |
-| **Saved Searches** |
-| GET /api/saved-searches | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| POST /api/saved-searches | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| PATCH/DELETE saved searches | ❌ | ✅ | ✅ | Admin token NOT required | Should require authentication |
-| **Public Endpoints (REQUIRED)** |
-| GET /api/public/editions (covers) | ❌ | ✅ | ✅ | **NOT IMPLEMENTED** | ❌ **MISSING** |
-| GET /api/public/editions/{id}/cover | ❌ | ✅ | ✅ | **NOT IMPLEMENTED** | ❌ **MISSING** |
+## API Endpoint Permissions
 
-## Critical Issues
+### Public Endpoints (no authentication required)
+- `GET /api/public/editions` - List newspaper editions (covers only)
+- `GET /api/public/editions/{id}` - Get edition details (covers only)
+- `POST /api/public/access-requests` - Submit access request
 
-### 🚨 **SECURITY VIOLATIONS**
-1. **Export endpoints are publicly accessible** - Anyone can download all extracted data without authentication
-2. **No user authentication system** - Cannot distinguish between public, reader, and admin access
-3. **All data is publicly readable** - No protection for story text, classifieds details, or search functionality
+### Reader Endpoints (authentication required)
+- `GET /api/editions` - List editions with full details
+- `GET /api/editions/{id}` - Get edition with full details
+- `GET /api/editions/{id}/items` - Get items in edition (full text)
+- `GET /api/items/{id}` - Get item details (full text)
+- `GET /api/search` - Search within specific edition
+- `GET /api/global-search` - Search across all editions
+- `GET /api/saved-searches` - List saved searches
+- `POST /api/saved-searches` - Create saved search
+- `PUT /api/saved-searches/{id}` - Update saved search
+- `DELETE /api/saved-searches/{id}` - Delete saved search
+- `GET /api/auth/me` - Get current user info
+- `POST /api/auth/logout` - Logout
 
-### 🚨 **JTBD COMPLIANCE GAPS**
-1. **Public users can see everything** - Violates "Public MUST NOT see any extracted story text, classifieds details"
-2. **No public cover-only view** - Missing required public API surface
-3. **No role-based access control** - Cannot enforce Reader vs Admin permissions
+### Admin-Only Endpoints (admin authentication required)
+- `POST /api/editions` - Upload new edition
+- `PUT /api/editions/{id}` - Update edition
+- `DELETE /api/editions/{id}` - Delete edition
+- `POST /api/editions/{id}/process` - Trigger processing
+- `GET /api/editions/{id}/processing-status` - Get processing status
+- `GET /api/export/editions/{id}` - Export edition data
+- `GET /api/export/search` - Export search results
+- `GET /api/users` - List users
+- `POST /api/users` - Create user
+- `PUT /api/users/{id}` - Update user
+- `DELETE /api/users/{id}` - Delete user
+- `GET /api/access-requests` - List access requests
+- `PUT /api/access-requests/{id}` - Approve/reject access request
 
-## Required Implementation
+## UI Component Permissions
 
-### 1. User Authentication System
-```python
-# New model needed
-class User(Base):
-    id: int
-    email: str (unique)
-    password_hash: str
-    role: str (READER, ADMIN)
-    is_active: bool
-    created_at: datetime
-    last_login: datetime
-```
+### Public UI
+- Landing page with cover gallery
+- Login form
+- Request access form
 
-### 2. Authentication Dependencies
-```python
-# New auth dependencies needed
-async def get_current_user(...)
-async def get_current_reader(...)  # READER or ADMIN
-async def verify_public_access(...)  # No auth required
-```
+### Reader UI
+- All public UI components
+- Edition library with full item access
+- Search functionality
+- Saved searches
+- Profile management
 
-### 3. Public API Endpoints
-```python
-# New router needed: /api/public/
-GET /api/public/editions  # Covers + metadata only
-GET /api/public/editions/{id}/cover  # Cover image only
-```
+### Admin UI
+- All Reader UI components
+- Upload interface
+- Export functionality
+- User management
+- Access request management
+- Processing controls
 
-### 4. Protected API Endpoints
-All current endpoints (except health check) need to be protected:
-- Reader-level: GET endpoints for items, search, saved searches
-- Admin-level: All write operations, export endpoints
+## Data Access Rules
 
-## Implementation Priority
+### Public Access
+- Can view edition covers and basic metadata
+- Cannot view extracted text or item details
+- Cannot search or export
+- Cannot access any user-specific features
 
-### Phase 1: Critical Security (IMMEDIATE)
-1. Protect export endpoints with admin token **RIGHT NOW**
-2. Implement User model and basic authentication
-3. Add JWT/session management
-4. Create public endpoints
+### Reader Access
+- Can view all edition content including full text
+- Can use all search features
+- Can manage saved searches
+- Cannot upload, delete, or export data
+- Cannot manage users or access requests
 
-### Phase 2: Role Enforcement (HIGH)
-1. Migrate all GET endpoints to require reader authentication
-2. Implement proper role-based dependencies
-3. Update frontend to handle authentication
+### Admin Access
+- Full access to all features
+- Can upload and manage editions
+- Can export any data
+- Can manage users and access requests
+- Can view processing logs and system status
 
-### Phase 3: Testing & Validation (HIGH)
-1. Create comprehensive test suite for permissions
-2. Test all endpoint combinations
-3. Verify JTBD compliance
+## Permission Enforcement
 
-## Security Requirements
+All permissions must be enforced at both:
+1. **UI Level** - Hide/disable controls based on user role
+2. **API Level** - Return 401/403 for unauthorized access attempts
 
-### Password Security
-- Minimum 8 characters
-- Hash with bcrypt or Argon2
-- Rate limiting on login attempts
+### Error Responses
+- `401 Unauthorized` - Authentication required or invalid
+- `403 Forbidden` - User authenticated but lacks required role
+- `404 Not Found` - Resource not found or user lacks permission to know it exists
 
-### Token Security
-- JWT with expiration (15 minutes access, 7 days refresh)
-- OR server-side sessions with secure cookies
-- CSRF protection for cookies
+## Migration Notes
 
-### API Security
-- Rate limiting per user
-- Input validation and sanitization
-- HTTPS only in production
+- Legacy `USER` role renamed to `READER` for clarity
+- Admin token authentication still supported for backward compatibility
+- JWT tokens now include user role in payload for role-based checks
 
-## Testing Requirements
+## Implementation Status
 
-### Required Test Cases
-1. **Public Access Test**: Anonymous users can only access public endpoints
-2. **Export Security Test**: Export endpoints return 401/403 without auth
-3. **Reader Access Test**: Readers can read but not export or upload
-4. **Admin Access Test**: Admins can perform all operations
-5. **Role Escalation Test**: Users cannot access higher privilege functions
+### ✅ Completed
+- User model with READER/ADMIN roles
+- JWT authentication system
+- Public API endpoints (editions only)
+- Access request model and endpoint
+- Rate limiting and bot protection
 
-### Test Commands
-```bash
-# Test public access
-curl -X GET "http://localhost:8007/api/public/editions"  # Should work
-curl -X GET "http://localhost:8007/api/editions"  # Should fail (401)
+### 🔄 In Progress
+- Role-based API endpoint protection
+- Frontend authentication integration
+- Admin user management
 
-# Test export security
-curl -X GET "http://localhost:8007/api/export/edition/1/export/all.csv"  # Should fail (401)
-
-# Test admin token
-curl -H "X-Admin-Token: secret" -X GET "http://localhost:8007/api/export/edition/1/export/all.csv"  # Should work
-```
-
-## Frontend Changes Required
-
-### Authentication UI
-- Login page
-- Logout functionality  
-- Session management
-- Role-based UI rendering
-
-### API Integration
-- All API calls must include auth headers
-- Handle 401/403 responses
-- Public vs authenticated content separation
-
-## Deployment Considerations
-
-### Environment Variables
-```bash
-# New required variables
-SECRET_KEY=your-jwt-secret-key
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-```
-
-### Database Migration
-- Add User table
-- Create initial admin user
-- Update existing data if needed
-
-### Security Headers
-- Strict-Transport-Security
-- X-Content-Type-Options
-- X-Frame-Options
-- Content-Security-Policy
+### ❌ TODO
+- Frontend routing structure (/app/*)
+- Role-based navbar components
+- Admin section UI
+- Comprehensive permission testing

@@ -1,13 +1,44 @@
 from typing import Any
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 
 from app.db.database import get_db
-from app.models import Edition, Item
-from app.schemas import EditionPublicResponse, ItemPublicResponse, ItemType
+from app.models import Edition, AccessRequest, AccessRequestStatus
+from app.schemas import EditionPublicResponse, AccessRequestCreate, AccessRequestResponse
 
 router = APIRouter()
+
+
+# Simple in-memory rate limiter for basic protection
+# In production, use Redis or similar
+_rate_limit_store = {}
+
+def check_rate_limit(request: Request, limit: int = 5, window_minutes: int = 60):
+    """Basic rate limiting by IP and email."""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Clean old entries
+    now = datetime.utcnow()
+    cutoff = now - timedelta(minutes=window_minutes)
+    
+    # Check IP limit
+    if client_ip in _rate_limit_store:
+        _rate_limit_store[client_ip] = [
+            timestamp for timestamp in _rate_limit_store[client_ip]
+            if timestamp > cutoff
+        ]
+        if len(_rate_limit_store[client_ip]) >= limit:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests. Please try again later."
+            )
+    else:
+        _rate_limit_store[client_ip] = []
+    
+    _rate_limit_store[client_ip].append(now)
 
 
 @router.get("/editions", response_model=list[EditionPublicResponse])
@@ -39,13 +70,7 @@ async def list_public_editions(
     ).offset(skip).limit(limit).all()
     
     return [
-        EditionPublicResponse(
-            id=edition.id,
-            newspaper_name=edition.newspaper_name,
-            edition_date=edition.edition_date,
-            num_pages=edition.num_pages,
-            status=edition.status
-        )
+        EditionPublicResponse.model_validate(edition)
         for edition in editions
     ]
 
@@ -79,116 +104,69 @@ async def get_public_edition(
     if not edition:
         raise HTTPException(status_code=404, detail="Edition not found")
     
-    return EditionPublicResponse(
-        id=edition.id,
-        newspaper_name=edition.newspaper_name,
-        edition_date=edition.edition_date,
-        num_pages=edition.num_pages,
-        status=edition.status
-    )
+    return EditionPublicResponse.model_validate(edition)
 
 
-@router.get("/editions/{edition_id}/items", response_model=list[ItemPublicResponse])
-async def list_public_edition_items(
-    edition_id: int,
-    item_type: ItemType | None = None,
-    skip: int = 0,
-    limit: int = 100,
+@router.post("/access-requests", response_model=AccessRequestResponse)
+async def create_access_request(
+    request_data: AccessRequestCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    List items in an edition with public information only.
+    Submit a new access request.
     
-    Provides basic item information (title and first 200 characters of text)
-    without requiring authentication. Only works for editions that are READY.
+    Creates an access request that will be reviewed by an administrator.
+    Includes basic rate limiting and bot protection.
     
     Args:
-        edition_id: ID of the edition
-        item_type: Filter by item type (STORY, AD, CLASSIFIED)
-        skip: Number of items to skip (pagination)
-        limit: Maximum number of items to return
+        request_data: Access request form data
+        request: HTTP request for rate limiting and tracking
         db: Database session
         
     Returns:
-        List of public item information
+        Created access request information
         
     Raises:
-        HTTPException: If edition not found or not ready
+        HTTPException: If rate limit exceeded or bot detected
     """
-    # Verify edition exists and is ready
-    edition = db.query(Edition).filter(
-        Edition.id == edition_id,
-        Edition.status == "READY"
-    ).first()
+    # Rate limiting
+    check_rate_limit(request, limit=3, window_minutes=60)  # 3 requests per hour per IP
     
-    if not edition:
-        raise HTTPException(status_code=404, detail="Edition not found or not ready")
+    # Bot protection - check honeypot field
+    if request_data.website_url:
+        raise HTTPException(status_code=400, detail="Bot detected")
     
-    # Build query for items
-    query = db.query(Item).filter(Item.edition_id == edition_id)
-    
-    # Add item type filter if specified
-    if item_type:
-        query = query.filter(Item.item_type == item_type)
-    
-    # Get items with pagination
-    items = query.order_by(
-        Item.page_number, Item.id
-    ).offset(skip).limit(limit).all()
-    
-    # Return public-safe information only
-    return [
-        ItemPublicResponse(
-            id=item.id,
-            edition_id=item.edition_id,
-            page_number=item.page_number,
-            item_type=item.item_type,
-            subtype=item.subtype,
-            title=item.title,
-            # Only show first 200 characters of text for public access
-            text=(item.text or "")[:200] + ("..." if item.text and len(item.text) > 200 else "")
+    # Check if there's already a pending request for this email
+    existing_request = db.query(AccessRequest).filter(
+        and_(
+            AccessRequest.email == request_data.email,
+            AccessRequest.status == AccessRequestStatus.PENDING.value
         )
-        for item in items
-    ]
-
-
-@router.get("/items/{item_id}", response_model=ItemPublicResponse)
-async def get_public_item(
-    item_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Get public information about a specific item.
-    
-    Provides basic item information (title and first 200 characters of text)
-    without requiring authentication. Only works for items in READY editions.
-    
-    Args:
-        item_id: ID of the item
-        db: Database session
-        
-    Returns:
-        Public item information
-        
-    Raises:
-        HTTPException: If item not found or edition not ready
-    """
-    # Join with edition to check status
-    item = db.query(Item).join(Edition).filter(
-        Item.id == item_id,
-        Edition.status == "READY"
     ).first()
     
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found or not available")
+    if existing_request:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a pending request. Please wait for review."
+        )
     
-    return ItemPublicResponse(
-        id=item.id,
-        edition_id=item.edition_id,
-        page_number=item.page_number,
-        item_type=item.item_type,
-        subtype=item.subtype,
-        title=item.title,
-        # Only show first 200 characters of text for public access
-        text=(item.text or "")[:200] + ("..." if item.text and len(item.text) > 200 else "")
+    # Create the access request
+    access_request = AccessRequest(
+        full_name=request_data.full_name,
+        email=request_data.email,
+        organization=request_data.organization,
+        phone=request_data.phone,
+        reason=request_data.reason,
+        consent_not_redistribute=request_data.consent_not_redistribute,
+        ip_address=request.client.host if request.client else "unknown",
+        user_agent=request.headers.get("user-agent"),
+        honeypot_field=request_data.website_url,  # Store for analysis
+        status=AccessRequestStatus.PENDING.value
     )
+    
+    db.add(access_request)
+    db.commit()
+    db.refresh(access_request)
+    
+    return AccessRequestResponse.model_validate(access_request)

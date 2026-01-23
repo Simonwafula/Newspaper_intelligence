@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import verify_admin_token
+from app.api.auth import get_reader_user, get_admin_user
 from app.db.database import get_db
 from app.schemas import SavedSearchCreate, SavedSearchResponse
 from app.services.saved_search_service import SavedSearchService
@@ -15,7 +15,7 @@ router = APIRouter()
 def create_saved_search(
     search: SavedSearchCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _user = Depends(get_reader_user)
 ) -> Any:
     """Create a new saved search."""
     service = SavedSearchService(db)
@@ -33,7 +33,8 @@ def list_saved_searches(
     skip: int = 0,
     limit: int = 100,
     active_only: bool = True,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user)
 ) -> Any:
     """List saved searches."""
     service = SavedSearchService(db)
@@ -41,7 +42,11 @@ def list_saved_searches(
 
 
 @router.get("/saved-searches/{search_id}", response_model=SavedSearchResponse)
-def get_saved_search(search_id: int, db: Session = Depends(get_db)) -> Any:
+def get_saved_search(
+    search_id: int, 
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user)
+) -> Any:
     """Get a specific saved search."""
     service = SavedSearchService(db)
     search = service.get(search_id)
@@ -55,7 +60,7 @@ def update_saved_search(
     search_id: int,
     search_update: SavedSearchCreate,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _user = Depends(get_reader_user)
 ) -> Any:
     """Update a saved search."""
     service = SavedSearchService(db)
@@ -69,7 +74,7 @@ def update_saved_search(
 def delete_saved_search(
     search_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _user = Depends(get_reader_user)
 ) -> Any:
     """Delete a saved search."""
     service = SavedSearchService(db)

@@ -8,8 +8,7 @@ import fitz  # PyMuPDF
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.auth import verify_admin_token
-from app.api.users import get_current_user
+from app.api.auth import get_reader_user, get_admin_user
 from app.db.database import SessionLocal, get_db
 from app.models import Edition
 from app.schemas import EditionResponse, EditionStatus
@@ -194,9 +193,9 @@ async def create_edition(
     file: UploadFile = File(...),
     newspaper_name: str = Form(...),
     edition_date: str = Form(...),
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _ = Depends(get_admin_user)
 ):
     """
     Upload a new PDF edition.
@@ -281,7 +280,7 @@ async def list_editions(
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user)
+    _user = Depends(get_reader_user)
 ):
     """
     List all editions with pagination.
@@ -294,7 +293,7 @@ async def list_editions(
 async def get_edition(
     edition_id: int, 
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user)
+    _user = Depends(get_reader_user)
 ):
     """
     Get a specific edition by ID.

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.api.users import get_current_user
+from app.api.auth import get_reader_user
 from app.db.database import get_db
 from app.models import Edition, Item
 from app.schemas import GlobalSearchResult, ItemSubtype, ItemType, SearchResult
@@ -28,7 +28,7 @@ async def search_edition(
     skip: int = Query(0, ge=0, description="Number of results to skip"),
     limit: int = Query(50, ge=1, le=1000, description="Maximum number of results to return"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user)
+    _user = Depends(get_reader_user)
 ):
     """
     Search within an edition for items matching the query.
@@ -153,7 +153,8 @@ async def search_all_editions(
     max_bedrooms: int | None = Query(None, description="Filter property by maximum bedrooms"),
     skip: int = Query(0, ge=0, description="Number of results to skip"),
     limit: int = Query(50, ge=1, le=1000, description="Maximum number of results to return"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user)
 ):
     """
     Search across all editions for items matching the query.

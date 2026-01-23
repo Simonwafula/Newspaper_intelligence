@@ -131,7 +131,7 @@ class SavedSearchResponse(BaseModel):
 # User Authentication Schemas
 
 class UserRole(str, Enum):
-    USER = "USER"
+    READER = "READER"
     ADMIN = "ADMIN"
 
 
@@ -139,7 +139,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     full_name: str | None = None
-    role: UserRole = UserRole.USER
+    role: UserRole = UserRole.READER
 
 
 class UserLogin(BaseModel):
@@ -153,6 +153,7 @@ class UserResponse(BaseModel):
     full_name: str | None
     role: UserRole
     is_active: bool
+    is_verified: bool
     last_login: datetime | None
     created_at: datetime
 
@@ -173,6 +174,57 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: int | None = None
+
+
+# Access Request Schemas
+
+class AccessRequestStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class AccessRequestCreate(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=200)
+    email: EmailStr
+    organization: str | None = Field(None, max_length=200)
+    phone: str | None = Field(None, max_length=50)
+    reason: str = Field(..., min_length=10)  # Required reason for access
+    consent_not_redistribute: bool = False
+    # Honeypot field for bot detection - should be empty in real submissions
+    website_url: str | None = None
+
+
+class AccessRequestResponse(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    organization: str | None
+    phone: str | None
+    reason: str
+    status: AccessRequestStatus
+    consent_not_redistribute: bool
+    created_at: datetime
+    updated_at: datetime
+    processed_at: datetime | None
+    admin_notes: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class AccessRequestAdminResponse(AccessRequestResponse):
+    """Extended response for admin users including internal fields."""
+    ip_address: str | None
+    user_agent: str | None
+    honeypot_field: str | None
+    processed_by_user_id: int | None
+
+
+class AccessRequestUpdate(BaseModel):
+    """Admin-only schema for updating access requests."""
+    status: AccessRequestStatus
+    admin_notes: str | None = None
 
 
 class HealthResponse(BaseModel):
