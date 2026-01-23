@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy.orm import Session
@@ -81,7 +81,7 @@ class WebhookService:
             "Content-Type": "application/json",
             "X-Webhook-Event": delivery.event_type,
             "X-Webhook-Delivery-Id": str(delivery.id),
-            "X-Webhook-Timestamp": datetime.now(timezone.utc).isoformat(),
+            "X-Webhook-Timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Add signature if secret is configured
@@ -105,11 +105,11 @@ class WebhookService:
 
             if 200 <= response.status_code < 300:
                 delivery.status = "success"
-                delivery.delivered_at = datetime.now(timezone.utc)
+                delivery.delivered_at = datetime.now(UTC)
 
                 # Update webhook stats
-                webhook.last_triggered_at = datetime.now(timezone.utc)
-                webhook.last_success_at = datetime.now(timezone.utc)
+                webhook.last_triggered_at = datetime.now(UTC)
+                webhook.last_success_at = datetime.now(UTC)
                 webhook.consecutive_failures = 0
                 webhook.total_deliveries += 1
                 webhook.successful_deliveries += 1
@@ -122,8 +122,8 @@ class WebhookService:
                 delivery.error_message = f"HTTP {response.status_code}: {response.text[:200]}"
 
                 # Update webhook failure stats
-                webhook.last_triggered_at = datetime.now(timezone.utc)
-                webhook.last_failure_at = datetime.now(timezone.utc)
+                webhook.last_triggered_at = datetime.now(UTC)
+                webhook.last_failure_at = datetime.now(UTC)
                 webhook.consecutive_failures += 1
                 webhook.total_deliveries += 1
 
@@ -137,7 +137,7 @@ class WebhookService:
             delivery.status = "failed"
             delivery.error_message = "Request timed out"
             webhook.consecutive_failures += 1
-            webhook.last_failure_at = datetime.now(timezone.utc)
+            webhook.last_failure_at = datetime.now(UTC)
             self.db.commit()
             logger.error(f"Webhook {webhook.id} timed out")
             return False
@@ -146,7 +146,7 @@ class WebhookService:
             delivery.status = "failed"
             delivery.error_message = str(e)[:500]
             webhook.consecutive_failures += 1
-            webhook.last_failure_at = datetime.now(timezone.utc)
+            webhook.last_failure_at = datetime.now(UTC)
             self.db.commit()
             logger.error(f"Webhook {webhook.id} delivery error: {e}")
             return False
@@ -187,7 +187,7 @@ class WebhookService:
                 "edition_id": edition_id,
                 "newspaper_name": newspaper_name,
                 "edition_date": edition_date,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 
@@ -209,7 +209,7 @@ class WebhookService:
                 "num_pages": num_pages,
                 "total_items": total_items,
                 "items_by_type": items_by_type,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 
@@ -221,7 +221,7 @@ class WebhookService:
                 "event": "edition.failed",
                 "edition_id": edition_id,
                 "error_message": error_message,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 
@@ -237,7 +237,7 @@ class WebhookService:
                 "edition_id": edition_id,
                 "count": len(jobs),
                 "jobs": jobs,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 
@@ -253,7 +253,7 @@ class WebhookService:
                 "edition_id": edition_id,
                 "count": len(tenders),
                 "tenders": tenders,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(UTC).isoformat()
             }
         )
 

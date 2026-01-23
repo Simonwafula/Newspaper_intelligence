@@ -1,7 +1,7 @@
-import pytest
 from app.schemas import UserCreate
 from app.services.auth_service import authenticate_user, create_user
 from app.utils.auth import create_access_token, get_password_hash, verify_password
+
 
 def test_password_hashing():
     """Test password hashing and verification"""

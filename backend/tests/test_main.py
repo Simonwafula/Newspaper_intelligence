@@ -3,15 +3,15 @@ Refactored test suite for Newspaper Intelligence backend.
 Uses TestClient and conftest.py fixtures.
 """
 
-import pytest
-import os
 from datetime import datetime
-from unittest.mock import MagicMock
 
-from app.models import Edition, Item, UserRole
-from app.schemas import EditionStatus, ItemType, ItemSubtype
-from app.api.auth import get_reader_user, get_admin_user
+import pytest
+
+from app.api.auth import get_admin_user, get_reader_user
 from app.main import app
+from app.models import Edition, Item
+from app.schemas import EditionStatus, ItemType
+
 
 @pytest.fixture(autouse=True)
 def mock_auth(mock_admin_user):
@@ -58,7 +58,7 @@ def test_edition_listing(client, db):
     )
     db.add(edition)
     db.commit()
-    
+
     response = client.get("/api/editions/")
     assert response.status_code == 200
     data = response.json()
@@ -77,7 +77,7 @@ def test_search_functionality(client, db):
     )
     db.add(edition)
     db.commit()
-    
+
     item = Item(
         edition_id=edition.id,
         page_number=1,
@@ -87,7 +87,7 @@ def test_search_functionality(client, db):
     )
     db.add(item)
     db.commit()
-    
+
     response = client.get(f"/api/search/edition/{edition.id}/search?q=banana")
     assert response.status_code == 200
     data = response.json()

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { analyticsApi } from '../services/api';
 import { TrendDashboardResponse } from '../types';
 import { Card } from '../components/ui/Card';
@@ -10,7 +10,7 @@ const TrendsDashboard: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [days, setDays] = useState(30);
 
-    const loadTrends = async () => {
+    const loadTrends = useCallback(async () => {
         try {
             setLoading(true);
             const result = await analyticsApi.getTrends(days);
@@ -21,11 +21,11 @@ const TrendsDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [days]);
 
     useEffect(() => {
         loadTrends();
-    }, [days]);
+    }, [loadTrends]);
 
     if (loading && !data) {
         return (

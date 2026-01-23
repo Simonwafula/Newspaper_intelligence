@@ -47,7 +47,7 @@ def override_get_db(db):
             yield db
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = _get_db
     yield
     # No need to clear here as it's autouse, but could if needed

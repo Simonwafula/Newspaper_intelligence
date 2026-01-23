@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { collectionsApi } from '../services/api';
 import { CollectionWithItems } from '../types';
@@ -13,7 +13,7 @@ const CollectionDetailPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const loadCollection = async () => {
+    const loadCollection = useCallback(async () => {
         if (!id) return;
         try {
             setLoading(true);
@@ -25,11 +25,11 @@ const CollectionDetailPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         loadCollection();
-    }, [id]);
+    }, [loadCollection]);
 
     const handleRemoveItem = async (itemId: number) => {
         if (!id || !collection) return;

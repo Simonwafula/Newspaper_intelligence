@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi, favoritesApi, collectionsApi } from '../services/api';
-import { ItemType, Collection } from '../types';
+import { ItemType, Collection, EditionStatus, Item } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
@@ -206,7 +206,7 @@ const EditionDetail = () => {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-600">
                 <span>Edition: {formatDate(edition.edition_date)}</span>
                 <span>{edition.num_pages} pages</span>
-                <StatusBadge status={edition.status as any} />
+                <StatusBadge status={edition.status as EditionStatus} />
               </div>
             </div>
 
@@ -319,7 +319,7 @@ const EditionDetail = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {items.map((item: any) => (
+                {items.map((item: Item) => (
                   <div
                     key={item.id}
                     className="p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
