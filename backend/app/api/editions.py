@@ -311,7 +311,7 @@ async def get_edition(
 async def reprocess_edition(
     edition_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _: None = Depends(get_admin_user)
 ):
     """
     Reprocess an edition (re-run text extraction and analysis).

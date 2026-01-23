@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, auth_routes, editions, export, items, processing, public, saved_searches, search
+from app.api import admin, auth_routes, categories, editions, export, external, items, processing, public, saved_searches, search, structured_export
 from app.db.database import Base, engine
 from app.settings import settings
 
@@ -50,7 +50,10 @@ app.include_router(processing.router, prefix="/api/editions", tags=["processing"
 app.include_router(items.router, prefix="/api/items", tags=["items"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(structured_export.router, prefix="/api/export", tags=["structured-export"])
+app.include_router(external.router, prefix="/api", tags=["external-api"])
 app.include_router(saved_searches.router, prefix="/api", tags=["saved-searches"])
+app.include_router(categories.router, prefix="/api", tags=["categories"])
 
 # Admin endpoints (require admin role)
 app.include_router(admin.router, tags=["admin"])

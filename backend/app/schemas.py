@@ -26,6 +26,11 @@ class ItemSubtype(str, Enum):
     OTHER = "OTHER"
 
 
+class ClassificationSource(str, Enum):
+    AUTO = "auto"
+    MANUAL = "manual"
+
+
 class EditionCreate(BaseModel):
     newspaper_name: str = Field(..., min_length=1, max_length=200)
     edition_date: datetime
@@ -256,3 +261,102 @@ class ItemPublicResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Category Schemas
+class CategoryBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., min_length=1, max_length=100)
+    description: str | None = None
+    color: str = Field(default="#6B7280", pattern=r"^#[0-9A-Fa-f]{6}$")
+    keywords: list[str] = Field(default_factory=list)
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class CategoryCreate(CategoryBase):
+    """Schema for creating a new category."""
+    pass
+
+
+class CategoryUpdate(BaseModel):
+    """Schema for updating an existing category."""
+    name: str | None = None
+    description: str | None = None
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    keywords: list[str] | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+class CategoryResponse(CategoryBase):
+    """Schema for category response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryWithStats(CategoryResponse):
+    """Category response with additional statistics."""
+    item_count: int
+    avg_confidence: float | None = None
+    recent_items: int = 0  # Items in last 30 days
+
+
+# Item Category (Classification) Schemas
+class ItemCategoryCreate(BaseModel):
+    """Schema for manually assigning a category to an item."""
+    category_id: int
+    confidence: int = Field(default=50, ge=0, le=100)
+    notes: str | None = None
+
+
+class ItemCategoryResponse(BaseModel):
+    """Schema for item category response."""
+    id: int
+    item_id: int
+    category_id: int
+    confidence: int
+    source: ClassificationSource
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    
+    # Include category details
+    category: CategoryResponse
+
+    class Config:
+        from_attributes = True
+
+
+class ItemWithCategories(ItemResponse):
+    """Item response with categories included."""
+    categories: list[ItemCategoryResponse] = Field(default_factory=list)
+
+
+class ClassificationStats(BaseModel):
+    """Statistics about classification results."""
+    total_items: int
+    items_classified: int
+    total_classifications: int
+    classification_rate: float  # Percentage of items that have at least one category
+    avg_categories_per_item: float
+
+
+class BatchClassificationRequest(BaseModel):
+    """Request for batch classification."""
+    item_ids: list[int]
+    confidence_threshold: int = Field(default=30, ge=0, le=100)
+    clear_existing: bool = True
+
+
+class BatchClassificationResponse(BaseModel):
+    """Response from batch classification."""
+    total_items: int
+    items_classified: int
+    total_classifications: int
+    failed_items: list[int] = Field(default_factory=list)
+    processing_time: float  # in seconds

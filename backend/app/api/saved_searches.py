@@ -88,7 +88,7 @@ def delete_saved_search(
 def update_search_matches(
     search_id: int,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _: None = Depends(get_admin_user)
 ) -> Any:
     """Update the match count for a saved search."""
     service = SavedSearchService(db)
@@ -101,7 +101,7 @@ def update_search_matches(
 @router.post("/saved-searches/update-all-matches")
 def update_all_search_matches(
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _: None = Depends(get_admin_user)
 ) -> Any:
     """Update match counts for all active saved searches."""
     service = SavedSearchService(db)

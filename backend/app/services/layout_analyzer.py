@@ -187,7 +187,7 @@ class LayoutAnalyzer:
                 structured_data = self.classifieds_service.process_classified(full_text, subtype)
 
             items.append({
-                'title': headline['text'],
+                'title': full_text,
                 'text': full_text,
                 'item_type': item_type,
                 'subtype': subtype,
@@ -197,7 +197,8 @@ class LayoutAnalyzer:
                 'price_info_json': structured_data.get('price_info'),
                 'date_info_json': structured_data.get('date_info'),
                 'location_info_json': structured_data.get('location_info'),
-                'classification_details_json': structured_data.get('classification_details')
+                'classification_details_json': structured_data.get('classification_details'),
+                'structured_data': structured_data if item_type == 'CLASSIFIED' and subtype else None
             })
 
         # Process remaining standalone blocks
@@ -227,7 +228,8 @@ class LayoutAnalyzer:
                 'price_info_json': structured_data.get('price_info'),
                 'date_info_json': structured_data.get('date_info'),
                 'location_info_json': structured_data.get('location_info'),
-                'classification_details_json': structured_data.get('classification_details')
+                'classification_details_json': structured_data.get('classification_details'),
+                'structured_data': structured_data if item_type == 'CLASSIFIED' and subtype else None
             })
 
         return items

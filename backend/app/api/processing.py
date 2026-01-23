@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import verify_admin_token
+from app.api.auth import get_admin_user
 from app.db.database import SessionLocal, get_db
 from app.models import Edition, ExtractionRun
 from app.schemas import EditionResponse, EditionStatus
@@ -29,7 +29,7 @@ async def process_edition(
     edition_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_token)
+    _: None = Depends(get_admin_user)
 ):
     """
     Start processing an edition in the background.

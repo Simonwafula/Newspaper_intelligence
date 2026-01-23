@@ -5,8 +5,9 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Edition, ExtractionRun, Item, Page
+from app.models import Edition, ExtractionRun, Item, Page, ItemCategory
 from app.schemas import EditionStatus
+from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
 from app.services.ocr_service import create_ocr_service
 from app.services.pdf_processor import create_pdf_processor
@@ -157,7 +158,13 @@ class ProcessingService:
                             subtype=item_data.get('subtype'),
                             title=item_data.get('title'),
                             text=item_data.get('text'),
-                            bbox_json=item_data.get('bbox_json')
+                            bbox_json=item_data.get('bbox_json'),
+                            structured_data=item_data.get('structured_data'),
+                            contact_info_json=item_data.get('contact_info_json'),
+                            price_info_json=item_data.get('price_info_json'),
+                            date_info_json=item_data.get('date_info_json'),
+                            location_info_json=item_data.get('location_info_json'),
+                            classification_details_json=item_data.get('classification_details_json')
                         )
                         db.add(item)
                         total_items += 1
@@ -215,6 +222,30 @@ class ProcessingService:
                 'processing_time': (datetime.utcnow() - extraction_run.started_at).total_seconds()
             })
             extraction_run.stats_json = dict(stats)
+
+            # Run category classification on all extracted items
+            try:
+                logger.info("Running category classification...")
+                category_classifier = CategoryClassifier(db)
+                all_items = db.query(Item).filter(Item.edition_id == edition_id).all()
+                
+                if all_items:
+                    classification_results = category_classifier.batch_classify_items(
+                        all_items, confidence_threshold=30, clear_existing=True
+                    )
+                    classified_count = len(classification_results)
+                    total_classifications = sum(len(classifications) for classifications in classification_results.values())
+                    
+                    logger.info(f"Classified {classified_count} items with {total_classifications} total classifications")
+                    
+                    # Update stats with classification info
+                    stats.update({
+                        'items_classified': classified_count,
+                        'total_classifications': total_classifications
+                    })
+            except Exception as e:
+                logger.error(f"Category classification failed: {e}")
+                # Don't fail the entire processing if classification fails
 
             db.commit()
 

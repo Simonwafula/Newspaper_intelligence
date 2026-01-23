@@ -129,11 +129,12 @@ class CategoryClassifier:
         classifications = []
 
         for category in categories:
-            if not category.keywords:
+            keywords = category.keywords or []
+            if not keywords:
                 continue
 
             try:
-                confidence = self._calculate_keyword_score(content, category.keywords)
+                confidence = self._calculate_keyword_score(content, keywords)
                 
                 if confidence >= confidence_threshold:
                     classifications.append(
@@ -219,10 +220,11 @@ class CategoryClassifier:
         suggestions = []
 
         for category in categories:
-            if not category.keywords:
+            keywords = category.keywords or []
+            if not keywords:
                 continue
 
-            confidence = self._calculate_keyword_score(text, category.keywords)
+            confidence = self._calculate_keyword_score(text, keywords)
             if confidence > 0:
                 suggestions.append((category, confidence))
 

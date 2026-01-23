@@ -207,10 +207,118 @@ class ClassifiedsIntelligence:
         """Extract job-specific information."""
         details = {}
 
-        # Look for common job keywords
+        # Job title patterns
+        job_title_patterns = [
+            r'(?:vacancy|position|role|job title|we are hiring|looking for)\s*[:#]?\s*([^\n,]+)',
+            r'\b(Manager|Director|Officer|Executive|Supervisor|Coordinator|Specialist|Analyst|Developer|Engineer|Accountant|Consultant|Representative|Agent|Assistant)\b',
+            r'\b(Senior|Junior|Lead|Chief|Head|Deputy|Assistant|Associate)\s+(Manager|Director|Officer|Executive|Supervisor|Coordinator|Specialist|Analyst|Developer|Engineer|Accountant|Consultant|Representative|Agent|Assistant)\b'
+        ]
+        
+        for pattern in job_title_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                job_title = match.group(1) if match.groups() else match.group(0)
+                details['job_title'] = job_title.strip()
+                break
+
+        # Employer/Company patterns
+        employer_patterns = [
+            r'(?:company|organization|employer)\s*[:#]?\s*([^\n,]+)',
+            r'\bat\s+([A-Z][a-zA-Z\s&]+)\b',
+            r'(?:join|work\s+for)\s+([A-Z][a-zA-Z\s&]+)\b'
+        ]
+        
+        for pattern in employer_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['employer'] = match.group(1).strip()
+                break
+
+        # Salary/compensation patterns
+        salary_patterns = [
+            r'\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:per\s*)?(?:month|year|annum|annually|pa|p\.a\.)',  # $50,000 per year
+            r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:KES|TSH|UGX|TZS)\s*(?:per\s*)?(?:month|year|annum)',  # 50,000 KES per month
+            r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*-\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:\$|KES|TSH|UGX|TZS)',  # 30,000 - 50,000 KES
+            r'salary\s*[:#]?\s*([^\n,]+)',
+            r'compensation\s*[:#]?\s*([^\n,]+)'
+        ]
+        
+        for pattern in salary_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                if match.groups() and len(match.groups()) >= 2:
+                    # Salary range
+                    salary_min = float(match.group(1).replace(',', ''))
+                    salary_max = float(match.group(2).replace(',', ''))
+                    details['salary_min'] = salary_min
+                    details['salary_max'] = salary_max
+                elif match.groups():
+                    # Single salary
+                    salary = float(match.group(1).replace(',', ''))
+                    details['salary_min'] = salary
+                    details['salary_max'] = salary
+                else:
+                    # Text salary description
+                    details['salary_description'] = match.group(0).strip()
+                
+                # Extract currency
+                salary_text = match.group(0).upper()
+                if '$' in salary_text:
+                    details['salary_currency'] = 'USD'
+                elif 'KES' in salary_text:
+                    details['salary_currency'] = 'KES'
+                elif 'TSH' in salary_text:
+                    details['salary_currency'] = 'TSH'
+                elif 'UGX' in salary_text:
+                    details['salary_currency'] = 'UGX'
+                elif 'TZS' in salary_text:
+                    details['salary_currency'] = 'TZS'
+                else:
+                    details['salary_currency'] = 'KES'  # Default
+                break
+
+        # Experience requirements
+        experience_patterns = [
+            r'(\d+)\+?\s*(?:years?|yr)\s+(?:of\s+)?(?:experience|exp)',
+            r'(\d+)\s*-\s*(\d+)\s*(?:years?|yr)\s+(?:of\s+)?(?:experience|exp)',
+            r'experience\s*[:#]?\s*(\d+)',
+            r'(?:minimum|required)\s*(?:years?\s*of\s*)?experience\s*[:#]?\s*(\d+)'
+        ]
+        
+        for pattern in experience_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                if match.groups() and len(match.groups()) >= 2:
+                    # Experience range
+                    details['experience_years_min'] = int(match.group(1))
+                    details['experience_years_max'] = int(match.group(2))
+                elif match.groups():
+                    # Single experience
+                    details['experience_years'] = int(match.group(1))
+                    details['experience_years_min'] = int(match.group(1))
+                    details['experience_years_max'] = int(match.group(1))
+                break
+
+        # Sector/Industry patterns
+        sector_patterns = [
+            r'\b(IT|Information Technology|Software|Banking|Finance|Healthcare|Education|Manufacturing|Retail|Hospitality|Construction|Agriculture|Government|NGO|Telecommunications|Media|Marketing|Sales|Logistics|Human Resources|Legal|Engineering|Accounting)\b',
+            r'(?:sector|industry)\s*[:#]?\s*([^\n,]+)'
+        ]
+        
+        sectors = []
+        for pattern in sector_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                sectors.append(match.strip())
+        
+        if sectors:
+            details['sector'] = list(set(sectors))
+
+        # Skills and qualifications
         skills_patterns = [
             r'\b((?:experience|proficiency|knowledge|skill)\s+(?:in|of|with)\s+[^,.\n]+)',
-            r'\b(\b(?:Python|Java|JavaScript|C\+\+|SQL|Excel|Word|PowerPoint)\b)'
+            r'\b(Python|Java|JavaScript|TypeScript|C\+\+|C#|SQL|Excel|Word|PowerPoint|Salesforce|SAP|Oracle|AWS|Azure|Google Cloud|Docker|Kubernetes|React|Angular|Vue|Node\.js|Django|Flask|Spring|\.NET|PHP|Ruby|Swift|Kotlin)\b',
+            r'\b((?:communication|teamwork|leadership|problem[-\s]?solving|analytical|project management|time management|creativity|adaptability|critical thinking|customer service|negotiation|presentation)\s*(?:skills?|abilities?))\b'
         ]
 
         skills = []
@@ -220,22 +328,54 @@ class ClassifiedsIntelligence:
                 skills.append(match.strip())
 
         if skills:
-            details['skills_required'] = list(set(skills))
+            details['qualifications'] = list(set(skills))
 
-        # Look for qualifications
-        qualification_patterns = [
-            r'\b(?:bachelor|master|phd|degree|diploma|certificate)[^,.\n]*',
-            r'\b(?:years?|year)\s+(?:of\s+)?experience[^,.\n]*'
+        # Degree/education requirements
+        education_patterns = [
+            r'\b(Bachelor|Master|PhD|Doctorate|MBA|BSc|MSc|BA|MA|BCom|MCom|BEng|MEng|Diploma|Certificate)\s*(?:in|of)?\s*([^\n,]*)',
+            r'\b(degree|qualification|education)\s*[:#]?\s*([^\n,]+)'
         ]
-
-        qualifications = []
-        for pattern in qualification_patterns:
+        
+        education = []
+        for pattern in education_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
-                qualifications.append(match.strip())
+                if isinstance(match, tuple):
+                    education_str = f"{match[0]} {'in ' + match[1] if match[1] else ''}".strip()
+                else:
+                    education_str = match.strip()
+                education.append(education_str)
+        
+        if education:
+            details['education_requirements'] = list(set(education))
 
-        if qualifications:
-            details['qualifications'] = list(set(qualifications))
+        # Deadline patterns
+        deadline_patterns = [
+            r'(?:deadline|closing date|apply by|submit by|last date)\s*[:#]?\s*([^\n,]+)',
+            r'(?:application\s*)?(?:deadline|closing)\s*(?:on|by|before)\s*([^\n,]+)'
+        ]
+        
+        for pattern in deadline_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['application_deadline'] = match.group(1).strip()
+                break
+
+        # Work location
+        location_patterns = [
+            r'\b(Remote|Work from Home|WFH|Hybrid|On-site|Office based)\b',
+            r'(?:location|workplace|office)\s*[:#]?\s*([^\n,]+)',
+            r'\bat\s+([A-Z][a-zA-Z\s]+)\s*(?:office|branch)'
+        ]
+        
+        for pattern in location_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                if match.groups():
+                    details['work_location'] = match.group(1).strip()
+                else:
+                    details['work_mode'] = match.group(0).strip()
+                break
 
         return details
 
@@ -272,14 +412,148 @@ class ClassifiedsIntelligence:
         details = {}
 
         # Tender number/reference
-        tender_ref_match = re.search(r'(?:tender\s*(?:no\.?|ref\.?|reference|number)\s*[:#]?\s*)([A-Z0-9-]+)', text, re.IGNORECASE)
-        if tender_ref_match:
-            details['tender_reference'] = tender_ref_match.group(1)
+        tender_ref_patterns = [
+            r'(?:tender\s*(?:no\.?|ref\.?|reference|number)\s*[:#]?\s*)([A-Z0-9-/]+)',
+            r'\b([A-Z]{2,4}\d{4,8}[-/]\d{3,4})\b',  # Common format like KE2024-001
+            r'reference\s*[:#]?\s*([A-Z0-9-/]+)',
+            r'ref\.?\s*[:#]?\s*([A-Z0-9-/]+)'
+        ]
+        
+        for pattern in tender_ref_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['tender_reference'] = match.group(1).strip()
+                break
 
-        # Company/organization
-        company_match = re.search(r'(?:issued\s*by|from|organization)\s*[:#]?\s*([^,\n]+)', text, re.IGNORECASE)
-        if company_match:
-            details['issuing_organization'] = company_match.group(1).strip()
+        # Issuing organization
+        issuer_patterns = [
+            r'(?:issued\s*by|from|organization|company|ministry|department|authority)\s*[:#]?\s*([^,\n]+)',
+            r'\b([A-Z][a-zA-Z\s&]{5,})\b(?:\s+is\s+(?:inviting|calling|requesting))',
+            r'(?:inviting|calling|requesting)\s+(?:bids|proposals|applications)\s+from\s+([^,\n]+)'
+        ]
+        
+        for pattern in issuer_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['issuer'] = match.group(1).strip()
+                break
+
+        # Tender title
+        title_patterns = [
+            r'(?:tender\s*title|subject|project)\s*[:#]?\s*([^\n]+)',
+            r're\s*:\s*([^\n]+)',
+            r'subject\s*:\s*([^\n]+)'
+        ]
+        
+        for pattern in title_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['title'] = match.group(1).strip()
+                break
+
+        # Category/sector
+        category_patterns = [
+            r'(?:category|sector|industry|field)\s*[:#]?\s*([^\n,]+)',
+            r'\b(supplies|services|construction|works|consultancy|training|maintenance|repair|IT|software|hardware|furniture|vehicles|equipment)\b'
+        ]
+        
+        categories = []
+        for pattern in category_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                categories.append(match.strip())
+        
+        if categories:
+            details['category'] = list(set(categories))
+
+        # Estimated value
+        value_patterns = [
+            r'\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:million|billion|thousand)?',
+            r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:KES|TSH|UGX|TZS|USD)\s*(?:million|billion|thousand)?',
+            r'(?:estimated\s*)?(?:value|cost|price|budget|contract\s*value)\s*[:#]?\s*([^\n,]+)',
+            r'(?:budget|price|cost)\s*[:#]?\s*([^\n,]+)'
+        ]
+        
+        for pattern in value_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                value_text = match.group(0) if not match.groups() else match.group(1)
+                
+                # Extract numeric value
+                numeric_match = re.search(r'([\d,]+(?:\.\d{2})?)', value_text)
+                if numeric_match:
+                    value = float(numeric_match.group(1).replace(',', ''))
+                    
+                    # Handle multipliers
+                    if 'million' in value_text.lower():
+                        value *= 1000000
+                    elif 'billion' in value_text.lower():
+                        value *= 1000000000
+                    elif 'thousand' in value_text.lower():
+                        value *= 1000
+                    
+                    details['estimated_value'] = value
+                    
+                    # Extract currency
+                    if '$' in value_text or 'USD' in value_text.upper():
+                        details['currency'] = 'USD'
+                    elif 'KES' in value_text.upper():
+                        details['currency'] = 'KES'
+                    elif 'TSH' in value_text.upper():
+                        details['currency'] = 'TSH'
+                    elif 'UGX' in value_text.upper():
+                        details['currency'] = 'UGX'
+                    elif 'TZS' in value_text.upper():
+                        details['currency'] = 'TZS'
+                    else:
+                        details['currency'] = 'USD'  # Default
+                break
+
+        # Deadline
+        deadline_patterns = [
+            r'(?:deadline|closing\s*date|submission\s*deadline|bid\s*closing)\s*[:#]?\s*([^\n,]+)',
+            r'(?:submit|send|deliver)\s*(?:bids|proposals|documents)\s*(?:by|before|on)\s*([^\n,]+)',
+            r'closes?\s*(?:on|at)\s*([^\n,]+)'
+        ]
+        
+        for pattern in deadline_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                details['deadline'] = match.group(1).strip()
+                break
+
+        # Eligibility criteria
+        eligibility_patterns = [
+            r'(?:eligibility|requirements|criteria|qualifications?)\s*[:#]?\s*([^\n]+)',
+            r'(?:must\s*have|required|should\s*be)\s+([^,\n]+)',
+            r'(?:bidder|applicant)\s*(?:must|should)\s+([^,\n]+)'
+        ]
+        
+        eligibility = []
+        for pattern in eligibility_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                eligibility.append(match.strip())
+        
+        if eligibility:
+            details['eligibility'] = eligibility
+
+        # Contact information
+        contact_patterns = [
+            r'(?:contact|inquiries|queries|clarifications?)\s*[:#]?\s*([^\n,]+)',
+            r'(?:for\s+more\s+information|contact\s+us)\s*[:#]?\s*([^\n,]+)',
+            r'(?:person|officer)\s*[:#]?\s*([^\n,]+)',
+            r'(?:email|phone|tel|mobile)\s*[:#]?\s*([^\n,]+)'
+        ]
+        
+        contact_info = []
+        for pattern in contact_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                contact_info.append(match.strip())
+        
+        if contact_info:
+            details['contact'] = contact_info
 
         return details
 

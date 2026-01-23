@@ -129,6 +129,7 @@ class Item(Base):
     date_info_json = Column(JSON, nullable=True)      # Event dates, deadlines
     location_info_json = Column(JSON, nullable=True)   # Locations, addresses
     classification_details_json = Column(JSON, nullable=True)  # Additional structured data
+    structured_data = Column(JSON, nullable=True)       # Enhanced structured data for jobs/tenders
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -219,6 +220,42 @@ class AccessRequest(Base):
     
     # Relationships
     processed_by = relationship("User", foreign_keys=[processed_by_user_id])
+
+
+class UserAPIKey(Base):
+    """API keys for external application access."""
+    __tablename__ = "user_api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)  # User-friendly name for the key
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256 hash
+    key_prefix = Column(String(10), nullable=False)  # First few characters for identification
+    description = Column(Text, nullable=True)  # Key purpose/description
+    
+    # Permissions and limits
+    permissions = Column(JSON, nullable=True)  # Array of allowed endpoints/resources
+    rate_limit_per_hour = Column(Integer, nullable=False, default=1000)  # Requests per hour
+    rate_limit_per_day = Column(Integer, nullable=False, default=10000)  # Requests per day
+    
+    # Status and tracking
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    total_requests = Column(Integer, nullable=False, default=0)  # Total requests ever made
+    
+    # Validity period
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # Optional expiration
+    
+    # Metadata
+    created_from_ip = Column(String(45), nullable=True)  # IP address that created the key
+    user_agent = Column(Text, nullable=True)  # Browser/client info
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
 
 
 class Category(Base):
