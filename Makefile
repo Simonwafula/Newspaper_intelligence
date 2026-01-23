@@ -75,7 +75,7 @@ test: test-backend test-frontend
 
 test-backend:
 	@echo "Running backend tests..."
-	@cd backend && PYTHONPATH=$$PWD python -m pytest tests/ -v
+	@cd backend && PYTHONPATH=$$PWD python3 -m pytest tests/ -v
 
 test-frontend:
 	@echo "Running frontend tests..."
@@ -86,7 +86,7 @@ build: build-backend build-frontend
 
 build-backend:
 	@echo "Building backend for production..."
-	@cd backend && PYTHONPATH=$$PWD ruff check . && PYTHONPATH=$$PWD python -m pytest tests/ -v
+	@cd backend && PYTHONPATH=$$PWD ruff check . && PYTHONPATH=$$PWD python3 -m pytest tests/ -v
 
 build-frontend:
 	@echo "Building frontend for production..."
@@ -103,7 +103,7 @@ clean:
 
 install-backend:
 	@echo "Installing backend dependencies..."
-	@cd backend && python -m pip install -r requirements.txt
+	@cd backend && python3 -m pip install -r requirements.txt
 	@echo "Backend dependencies installed"
 
 install-frontend:
@@ -129,20 +129,20 @@ ci: lint test build
 db-upgrade:
 	@echo "Running database migrations..."
 	@echo "Using Database: $${DATABASE_URL:-Defaulting to SQLite (from app settings)}"
-	@cd backend && PYTHONPATH=$$PWD python -m alembic upgrade head
+	@cd backend && PYTHONPATH=$$PWD python3 -m alembic upgrade head
 
 db-create:
 	@echo "Creating new database migration..."
-	@cd backend && PYTHONPATH=$$PWD python -m alembic revision --autogenerate -m "$(MSG)"
+	@cd backend && PYTHONPATH=$$PWD python3 -m alembic revision --autogenerate -m "$(MSG)"
 
 # Seeding commands
 seed-admin:
 	@echo "Creating admin user..."
-	@cd backend && PYTHONPATH=$$PWD python -m app.services.seed_users $(ARGS)
+	@cd backend && PYTHONPATH=$$PWD python3 -m app.services.seed_users $(ARGS)
 
 seed-categories:
 	@echo "Seeding default categories..."
-	@cd backend && PYTHONPATH=$$PWD python -m app.services.seed_categories
+	@cd backend && PYTHONPATH=$$PWD python3 -m app.services.seed_categories
 
 seed-all: db-upgrade seed-admin seed-categories
 	@echo "Database seeded with admin user and categories"
