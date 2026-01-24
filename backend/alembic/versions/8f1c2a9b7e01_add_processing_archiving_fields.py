@@ -33,7 +33,7 @@ def upgrade() -> None:
     with op.batch_alter_table("pages") as batch_op:
         batch_op.add_column(sa.Column("status", sa.String(length=20), nullable=False, server_default="DONE"))
         batch_op.add_column(sa.Column("char_count", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("ocr_used", sa.Boolean(), nullable=False, server_default=sa.text("0")))
+        batch_op.add_column(sa.Column("ocr_used", sa.Boolean(), nullable=False, server_default=sa.text("false")))
         batch_op.add_column(sa.Column("error_message", sa.Text(), nullable=True))
 
     with op.batch_alter_table("extraction_runs") as batch_op:
