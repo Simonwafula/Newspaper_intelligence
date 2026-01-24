@@ -62,7 +62,7 @@ def upgrade() -> None:
         "WHERE status IN ('UPLOADED', 'PROCESSING')"
     )
     op.execute(
-        "UPDATE extraction_runs SET status = CASE WHEN success = 1 THEN 'SUCCESS' ELSE 'FAILED' END"
+        "UPDATE extraction_runs SET status = CASE WHEN success IS TRUE THEN 'SUCCESS' ELSE 'FAILED' END"
     )
     op.execute(
         "UPDATE extraction_runs SET completed_at = finished_at WHERE completed_at IS NULL"
