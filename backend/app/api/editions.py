@@ -353,3 +353,60 @@ async def reprocess_edition(
     background_tasks.add_task(run_processing_task, edition_id)
 
     return edition
+
+
+@router.delete("/{edition_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_edition(
+    edition_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(get_admin_user)
+):
+    """
+    Delete an edition and all associated files.
+    Admin only.
+    """
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Edition not found"
+        )
+
+    # Check if currently processing
+    if edition.status == EditionStatus.PROCESSING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete an edition that is currently being processed"
+        )
+
+    # Delete associated files
+    try:
+        # Delete the PDF file
+        if edition.file_path and os.path.exists(edition.file_path):
+            os.remove(edition.file_path)
+            logger.info(f"Deleted PDF file: {edition.file_path}")
+
+        # Delete cover image if exists
+        cover_path = os.path.join(settings.storage_path, "covers", f"{edition_id}.jpg")
+        if os.path.exists(cover_path):
+            os.remove(cover_path)
+            logger.info(f"Deleted cover image: {cover_path}")
+
+        # Delete page images
+        pages_dir = os.path.join(settings.storage_path, "pages")
+        for filename in os.listdir(pages_dir):
+            if filename.startswith(f"{edition_id}_"):
+                file_path = os.path.join(pages_dir, filename)
+                os.remove(file_path)
+                logger.info(f"Deleted page image: {file_path}")
+
+    except Exception as e:
+        logger.error(f"Error deleting files for edition {edition_id}: {e}")
+        # Continue with DB deletion even if file deletion fails
+
+    # Delete from database (cascades to pages, items, etc.)
+    db.delete(edition)
+    db.commit()
+
+    logger.info(f"Deleted edition {edition_id}")
+    return None

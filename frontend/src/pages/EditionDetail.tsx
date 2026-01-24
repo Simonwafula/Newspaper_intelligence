@@ -110,6 +110,27 @@ const EditionDetail = () => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => editionsApi.deleteEdition(editionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editions'] });
+      alert('Edition deleted successfully');
+      window.location.href = '/app/editions';
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const responseDetail = axiosError.response?.data?.detail;
+      alert(`Delete failed: ${responseDetail || errorMessage}`);
+    },
+  });
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to delete "${edition?.newspaper_name}"? This action cannot be undone.`)) {
+      deleteMutation.mutate();
+    }
+  };
+
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     const filter: { item_type?: ItemType; subtype?: string } = {};
@@ -232,6 +253,17 @@ const EditionDetail = () => {
                     Reset & Reprocess
                   </Button>
                 </>
+              )}
+              {/* Delete button - always visible except during processing */}
+              {edition.status !== 'PROCESSING' && (
+                <Button
+                  variant="secondary"
+                  onClick={handleDelete}
+                  isLoading={deleteMutation.isPending}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </Button>
               )}
             </div>
           </div>

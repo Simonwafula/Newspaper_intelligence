@@ -132,6 +132,28 @@ const EditionsLibrary = () => {
         </div>
       </Card>
 
+      {/* Summary Statistics */}
+      {editions && editions.length > 0 && (
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-ink-800">{editions.length}</div>
+            <div className="text-sm text-stone-600">Total Editions</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-ink-800">
+              {editions.reduce((sum, e) => sum + e.num_pages, 0)}
+            </div>
+            <div className="text-sm text-stone-600">Total Pages</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-3xl font-bold text-ink-800">
+              {editions.filter(e => e.status === 'READY').length}
+            </div>
+            <div className="text-sm text-stone-600">Processed</div>
+          </Card>
+        </div>
+      )}
+
       {/* Editions Grid */}
       <div>
         <PageHeader title="Editions Library" />

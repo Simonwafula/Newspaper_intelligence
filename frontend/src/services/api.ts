@@ -108,6 +108,11 @@ export const editionsApi = {
     const response = await api.get(`/api/processing/${id}/status`);
     return response.data;
   },
+
+  // Delete edition
+  deleteEdition: async (id: number): Promise<void> => {
+    await api.delete(`/api/editions/${id}`);
+  },
 };
 
 export const itemsApi = {
