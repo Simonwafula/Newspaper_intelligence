@@ -69,8 +69,11 @@ def test_edition(db):
         edition_date=datetime(2024, 1, 15),
         file_hash="test_hash_123",
         file_path="/test/path.pdf",
-        num_pages=5,
-        status="READY"
+        total_pages=5,
+        processed_pages=5,
+        status="READY",
+        current_stage="DONE",
+        archive_status="SCHEDULED"
     )
     db.add(edition)
     db.commit()

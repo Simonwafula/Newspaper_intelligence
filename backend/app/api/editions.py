@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_admin_user, get_reader_user
 from app.db.database import SessionLocal, get_db
-from app.models import Edition
+from app.models import Edition, Item, Page
 from app.schemas import EditionResponse, EditionStatus
+from app.services.archive_service import archive_edition_now
 from app.services.processing_service import create_processing_service
 from app.settings import settings
 
@@ -180,21 +181,35 @@ def validate_pdf_file(file: UploadFile) -> None:
         )
 
 
-def save_pdf_file(file_content: bytes, file_hash: str) -> str:
-    """Save PDF file to storage and return the file path."""
-    editions_dir = os.path.join(settings.storage_path, "editions")
-    os.makedirs(editions_dir, exist_ok=True)
+def save_pdf_file(file_content: bytes, edition_id: int) -> str:
+    """Save PDF file to edition storage and return the file path."""
+    edition_dir = os.path.join(settings.storage_path, "editions", str(edition_id))
+    os.makedirs(edition_dir, exist_ok=True)
 
-    file_path = os.path.join(editions_dir, f"{file_hash}.pdf")
-
-    # Check if file already exists (shouldn't happen due to deduplication)
-    if os.path.exists(file_path):
-        return file_path
+    file_path = os.path.join(edition_dir, "original.pdf")
 
     with open(file_path, "wb") as f:
         f.write(file_content)
 
     return file_path
+
+
+def generate_cover_image(pdf_path: str, edition_id: int) -> str | None:
+    """Generate a cover image (first page) and return its path."""
+    covers_dir = os.path.join(settings.storage_path, "covers")
+    os.makedirs(covers_dir, exist_ok=True)
+
+    cover_path = os.path.join(covers_dir, f"{edition_id}.png")
+    try:
+        doc = fitz.open(pdf_path)
+        page = doc[0]
+        pix = page.get_pixmap()
+        pix.save(cover_path)
+        doc.close()
+        return cover_path
+    except Exception as e:
+        logger.warning(f"Failed to generate cover image for edition {edition_id}: {e}")
+        return None
 
 
 @router.post("/", response_model=EditionResponse)
@@ -258,24 +273,49 @@ async def create_edition(
             detail="Invalid date format. Use YYYY-MM-DD format"
         ) from err
 
-    # Save compressed file
-    file_path = save_pdf_file(compressed_content, file_hash)
+    try:
+        doc = fitz.open(stream=compressed_content, filetype="pdf")
+        total_pages = len(doc)
+        doc.close()
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to read PDF pages"
+        ) from err
 
-    # Create edition record
     edition = Edition(
         newspaper_name=newspaper_name,
         edition_date=parsed_date,
         file_hash=file_hash,
-        file_path=file_path,
+        file_path="",
+        pdf_local_path=None,
+        storage_backend="local",
+        storage_key=None,
+        total_pages=total_pages,
+        processed_pages=0,
         status=EditionStatus.UPLOADED,
-        num_pages=0  # Will be updated during processing
+        current_stage="QUEUED",
+        archive_status="SCHEDULED",
     )
 
     db.add(edition)
     db.commit()
     db.refresh(edition)
 
-    edition.status = EditionStatus.PROCESSING  # type: ignore
+    file_path = save_pdf_file(compressed_content, edition.id)
+    edition.file_path = file_path
+    edition.pdf_local_path = file_path
+    edition.storage_key = file_path
+
+    cover_path = generate_cover_image(file_path, edition.id)
+    if cover_path:
+        edition.cover_image_path = cover_path
+
+    pages = [
+        Page(edition_id=edition.id, page_number=page_number, status="PENDING")
+        for page_number in range(1, total_pages + 1)
+    ]
+    db.add_all(pages)
     db.commit()
     db.refresh(edition)
 
@@ -313,6 +353,11 @@ async def get_edition(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Edition not found"
         )
+    if edition.status != EditionStatus.READY:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only READY editions can be archived"
+        )
     return edition
 
 
@@ -340,12 +385,29 @@ async def reprocess_edition(
             detail="Edition is already being processed"
         )
 
-    # Reset status and progress for reprocessing
-    edition.status = EditionStatus.PROCESSING  # type: ignore
-    edition.pages_processed = 0  # type: ignore
-    edition.error_message = None  # type: ignore
+    pdf_path = edition.pdf_local_path or edition.file_path
+    if not pdf_path or not os.path.exists(pdf_path):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Local PDF missing. Restore or re-upload before reprocessing."
+        )
+
+    db.query(Item).filter(Item.edition_id == edition_id).delete()
+    db.query(Page).filter(Page.edition_id == edition_id).delete()
+    db.commit()
+
+    edition.status = EditionStatus.UPLOADED  # type: ignore
+    edition.processed_pages = 0  # type: ignore
+    edition.current_stage = "QUEUED"  # type: ignore
+    edition.last_error = None  # type: ignore
     edition.processed_at = None  # type: ignore
 
+    total_pages = edition.total_pages or 0
+    pages = [
+        Page(edition_id=edition.id, page_number=page_number, status="PENDING")
+        for page_number in range(1, total_pages + 1)
+    ]
+    db.add_all(pages)
     db.commit()
     db.refresh(edition)
 
@@ -353,6 +415,47 @@ async def reprocess_edition(
     background_tasks.add_task(run_processing_task, edition_id)
 
     return edition
+
+
+@router.post("/{edition_id}/archive", response_model=EditionResponse)
+async def archive_edition(
+    edition_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(get_admin_user)
+):
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Edition not found"
+        )
+
+    archived = archive_edition_now(edition, db)
+    if not archived:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Archiving failed"
+        )
+    return edition
+
+
+@router.post("/{edition_id}/restore", response_model=EditionResponse)
+async def restore_edition(
+    edition_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(get_admin_user)
+):
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Edition not found"
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Restore not implemented"
+    )
 
 
 @router.delete("/{edition_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -381,24 +484,32 @@ async def delete_edition(
 
     # Delete associated files
     try:
-        # Delete the PDF file
-        if edition.file_path and os.path.exists(edition.file_path):
-            os.remove(edition.file_path)
-            logger.info(f"Deleted PDF file: {edition.file_path}")
+        pdf_path = edition.pdf_local_path or edition.file_path
+        if pdf_path and os.path.exists(pdf_path):
+            os.remove(pdf_path)
+            logger.info(f"Deleted PDF file: {pdf_path}")
 
-        # Delete cover image if exists
-        cover_path = os.path.join(settings.storage_path, "covers", f"{edition_id}.jpg")
+        cover_path = edition.cover_image_path or os.path.join(
+            settings.storage_path, "covers", f"{edition_id}.png"
+        )
         if os.path.exists(cover_path):
             os.remove(cover_path)
             logger.info(f"Deleted cover image: {cover_path}")
 
         # Delete page images
         pages_dir = os.path.join(settings.storage_path, "pages")
-        for filename in os.listdir(pages_dir):
-            if filename.startswith(f"{edition_id}_"):
-                file_path = os.path.join(pages_dir, filename)
-                os.remove(file_path)
-                logger.info(f"Deleted page image: {file_path}")
+        if os.path.exists(pages_dir):
+            for filename in os.listdir(pages_dir):
+                if filename.startswith(f"{edition_id}_"):
+                    file_path = os.path.join(pages_dir, filename)
+                    os.remove(file_path)
+                    logger.info(f"Deleted page image: {file_path}")
+
+        edition_dir = os.path.join(settings.storage_path, "editions", str(edition_id))
+        if os.path.exists(edition_dir):
+            for filename in os.listdir(edition_dir):
+                os.remove(os.path.join(edition_dir, filename))
+            os.rmdir(edition_dir)
 
     except Exception as e:
         logger.error(f"Error deleting files for edition {edition_id}: {e}")

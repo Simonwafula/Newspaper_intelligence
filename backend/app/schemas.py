@@ -10,6 +10,37 @@ class EditionStatus(str, Enum):
     PROCESSING = "PROCESSING"
     READY = "READY"
     FAILED = "FAILED"
+    ARCHIVED = "ARCHIVED"
+
+
+class EditionStage(str, Enum):
+    QUEUED = "QUEUED"
+    EXTRACT = "EXTRACT"
+    OCR = "OCR"
+    LAYOUT = "LAYOUT"
+    INDEX = "INDEX"
+    DONE = "DONE"
+
+
+class ArchiveStatus(str, Enum):
+    NOT_SCHEDULED = "NOT_SCHEDULED"
+    SCHEDULED = "SCHEDULED"
+    ARCHIVING = "ARCHIVING"
+    ARCHIVED = "ARCHIVED"
+    ARCHIVE_FAILED = "ARCHIVE_FAILED"
+
+
+class PageStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    DONE = "DONE"
+    FAILED = "FAILED"
+
+
+class ExtractionRunStatus(str, Enum):
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
 
 
 class ItemType(str, Enum):
@@ -44,10 +75,16 @@ class EditionResponse(BaseModel):
     newspaper_name: str
     edition_date: datetime
     file_hash: str
-    num_pages: int
-    pages_processed: int = 0
+    total_pages: int
+    processed_pages: int = 0
     status: EditionStatus
-    error_message: str | None = None
+    current_stage: EditionStage
+    archive_status: ArchiveStatus
+    archived_at: datetime | None = None
+    storage_backend: str
+    storage_key: str | None = None
+    cover_image_path: str | None = None
+    last_error: str | None = None
     created_at: datetime
     processed_at: datetime | None = None
 
@@ -58,6 +95,10 @@ class PageResponse(BaseModel):
     id: int
     edition_id: int
     page_number: int
+    status: PageStatus
+    char_count: int
+    ocr_used: bool
+    error_message: str | None = None
     image_path: str | None = None
     extracted_text: str | None = None
     created_at: datetime
@@ -247,8 +288,8 @@ class EditionPublicResponse(BaseModel):
     id: int
     newspaper_name: str
     edition_date: datetime
-    num_pages: int
-    status: str
+    status: EditionStatus | None = None
+    cover_image_url: str | None = None
 
 
 class ItemPublicResponse(BaseModel):

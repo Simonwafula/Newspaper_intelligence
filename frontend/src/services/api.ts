@@ -92,6 +92,12 @@ export const editionsApi = {
     return response.data;
   },
 
+  // Archive edition (manual trigger)
+  archiveEdition: async (id: number): Promise<Edition> => {
+    const response = await api.post(`/api/editions/${id}/archive`, {});
+    return response.data;
+  },
+
   // Get processing status and logs
   getProcessingStatus: async (id: number): Promise<{
     edition: Edition;
@@ -99,13 +105,16 @@ export const editionsApi = {
       id: number;
       version: string;
       success: boolean;
+      status?: string;
       started_at: string;
       finished_at?: string;
+      completed_at?: string;
       log_path?: string;
       stats?: Record<string, unknown>;
+      error_message?: string;
     }>;
   }> => {
-    const response = await api.get(`/api/processing/${id}/status`);
+    const response = await api.get(`/api/editions/${id}/status`);
     return response.data;
   },
 

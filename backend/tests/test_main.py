@@ -54,7 +54,10 @@ def test_edition_listing(client, db):
         file_hash="mockhash123",
         file_path="/tmp/mock.pdf",
         status=EditionStatus.READY,
-        num_pages=5
+        total_pages=5,
+        processed_pages=5,
+        current_stage="DONE",
+        archive_status="SCHEDULED"
     )
     db.add(edition)
     db.commit()
@@ -73,7 +76,10 @@ def test_search_functionality(client, db):
         file_hash="searchhash456",
         file_path="/tmp/search.pdf",
         status=EditionStatus.READY,
-        num_pages=1
+        total_pages=1,
+        processed_pages=1,
+        current_stage="DONE",
+        archive_status="SCHEDULED"
     )
     db.add(edition)
     db.commit()

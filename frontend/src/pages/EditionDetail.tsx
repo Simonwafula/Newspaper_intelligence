@@ -6,6 +6,7 @@ import { ItemType, Collection, EditionStatus, Item } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
+import { useAuth } from '../context/AuthContext';
 
 type TabType = 'stories' | 'ads' | 'classifieds';
 
@@ -23,11 +24,16 @@ const EditionDetail = () => {
   const [showCollectionMenu, setShowCollectionMenu] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
+  const isAdminUser = isAdmin();
 
   const { data: edition, isLoading: editionLoading, error: editionError } = useQuery({
     queryKey: ['edition', editionId],
     queryFn: () => editionsApi.getEdition(editionId),
-    refetchInterval: (query) => query.state.data?.status === 'PROCESSING' ? 2000 : false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'PROCESSING' || query.state.data?.status === 'UPLOADED'
+        ? 2000
+        : false,
   });
 
   const { data: items, isLoading: itemsLoading } = useQuery({
@@ -125,6 +131,20 @@ const EditionDetail = () => {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: () => editionsApi.archiveEdition(editionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['edition', editionId] });
+      alert('Archive started.');
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const responseDetail = axiosError.response?.data?.detail;
+      alert(`Archive failed: ${responseDetail || errorMessage}`);
+    },
+  });
+
   const handleDelete = () => {
     if (window.confirm(`Are you sure you want to delete "${edition?.newspaper_name}"? This action cannot be undone.`)) {
       deleteMutation.mutate();
@@ -154,13 +174,14 @@ const EditionDetail = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Use edition.pages_processed for real-time progress (updated by backend)
-  const totalPages = edition?.num_pages ?? 0;
-  const pagesProcessed = edition?.pages_processed ?? 0;
+  const totalPages = edition?.total_pages ?? 0;
+  const pagesProcessed = edition?.processed_pages ?? 0;
+  const stageLabel = edition?.current_stage ?? 'QUEUED';
   const progressPct =
     totalPages > 0
       ? Math.min(100, Math.round((pagesProcessed / totalPages) * 100))
       : 0;
+  const showProgress = edition?.status === 'UPLOADED' || edition?.status === 'PROCESSING';
 
   if (editionLoading) {
     return (
@@ -213,8 +234,11 @@ const EditionDetail = () => {
               <h1 className="text-2xl font-bold text-ink-800 mb-2">{edition.newspaper_name}</h1>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-600">
                 <span>Edition: {formatDate(edition.edition_date)}</span>
-                <span>{edition.num_pages} pages</span>
+                <span>{edition.total_pages} pages</span>
                 <StatusBadge status={edition.status as EditionStatus} />
+                {edition.archive_status && (
+                  <span className="text-xs text-stone-500">Archive: {edition.archive_status}</span>
+                )}
               </div>
             </div>
 
@@ -235,6 +259,15 @@ const EditionDetail = () => {
                   isLoading={reprocessMutation.isPending || processMutation.isPending}
                 >
                   Reprocess
+                </Button>
+              )}
+              {isAdminUser && edition.status === 'READY' && (edition.archive_status === 'SCHEDULED' || edition.archive_status === 'ARCHIVE_FAILED') && (
+                <Button
+                  variant="secondary"
+                  onClick={() => archiveMutation.mutate()}
+                  isLoading={archiveMutation.isPending}
+                >
+                  Archive Now
                 </Button>
               )}
               {edition.status === 'FAILED' && (
@@ -269,18 +302,18 @@ const EditionDetail = () => {
           </div>
 
           {/* Error Message */}
-          {edition.error_message && (
+          {edition.last_error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-              <strong>Processing Error:</strong> {edition.error_message}
+              <strong>Processing Error:</strong> {edition.last_error}
             </div>
           )}
 
           {/* Processing Status */}
-          {edition.status === 'PROCESSING' && (
+          {showProgress && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mt-4">
               <div className="flex items-center gap-2 font-medium text-amber-800 mb-1">
                 <span className="pulse-dot"></span>
-                Processing in progress...
+                {edition.status === 'UPLOADED' ? 'Queued for processing...' : 'Processing in progress...'}
               </div>
               <p className="text-amber-700 text-sm">
                 The edition is being processed. This may take a few minutes.
@@ -288,10 +321,8 @@ const EditionDetail = () => {
               {totalPages && pagesProcessed !== undefined && progressPct !== undefined && (
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-xs text-amber-700 mb-1">
-                    <span>Progress</span>
-                    <span>
-                      {progressPct}% ({pagesProcessed}/{totalPages} pages)
-                    </span>
+                    <span>Processed {pagesProcessed} of {totalPages} pages</span>
+                    <span>{stageLabel}</span>
                   </div>
                   <div className="h-2 w-full bg-amber-100 rounded">
                     <div
@@ -329,7 +360,7 @@ const EditionDetail = () => {
 
         {/* Tab Content */}
         <div className="p-4">
-          {edition.status === 'READY' ? (
+          {edition.status === 'READY' || edition.status === 'PROCESSING' || edition.status === 'ARCHIVED' ? (
             itemsLoading ? (
               <Loading message="Loading items..." />
             ) : !items || items.length === 0 ? (

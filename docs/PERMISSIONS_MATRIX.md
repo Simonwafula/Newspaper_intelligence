@@ -12,7 +12,7 @@ This document defines the role-based access control for Newspaper Intelligence.
 
 ### Public Endpoints (no authentication required)
 - `GET /api/public/editions` - List newspaper editions (covers only)
-- `GET /api/public/editions/{id}` - Get edition details (covers only)
+- `GET /api/public/editions/{id}/cover` - Get edition cover image
 - `POST /api/public/access-requests` - Submit access request
 
 ### Reader Endpoints (authentication required)
@@ -34,6 +34,9 @@ This document defines the role-based access control for Newspaper Intelligence.
 - `PUT /api/editions/{id}` - Update edition
 - `DELETE /api/editions/{id}` - Delete edition
 - `POST /api/editions/{id}/process` - Trigger processing
+- `POST /api/editions/{id}/reprocess` - Re-run processing
+- `POST /api/editions/{id}/archive` - Archive PDF to Drive
+- `POST /api/editions/{id}/restore` - Restore archived PDF (stub)
 - `GET /api/editions/{id}/processing-status` - Get processing status
 - `GET /api/export/editions/{id}` - Export edition data
 - `GET /api/export/search` - Export search results
@@ -78,12 +81,14 @@ This document defines the role-based access control for Newspaper Intelligence.
 - Can view all edition content including full text
 - Can use all search features
 - Can manage saved searches
+- Can read archived editions (text and cover only; no PDF)
 - Cannot upload, delete, or export data
 - Cannot manage users or access requests
 
 ### Admin Access
 - Full access to all features
 - Can upload and manage editions
+- Can manually archive editions to Drive
 - Can export any data
 - Can manage users and access requests
 - Can view processing logs and system status

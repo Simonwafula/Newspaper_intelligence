@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Newspaper Intelligence PDF Archive Daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -50,6 +50,8 @@ async def process_edition(
 
     # Update status to processing immediately
     edition.status = EditionStatus.PROCESSING  # type: ignore
+    edition.current_stage = "QUEUED"  # type: ignore
+    edition.last_error = None  # type: ignore
     db.commit()
     db.refresh(edition)
 
@@ -83,19 +85,26 @@ async def get_processing_status(
         "edition": {
             "id": edition.id,
             "status": edition.status,
-            "error_message": edition.error_message,
+            "last_error": edition.last_error,
             "processed_at": edition.processed_at,
-            "num_pages": edition.num_pages
+            "total_pages": edition.total_pages,
+            "processed_pages": edition.processed_pages,
+            "current_stage": edition.current_stage,
+            "archive_status": edition.archive_status,
+            "archived_at": edition.archived_at,
         },
         "extraction_runs": [
             {
                 "id": run.id,
                 "version": run.version,
                 "success": run.success,
+                "status": run.status,
                 "started_at": run.started_at,
                 "finished_at": run.finished_at,
+                "completed_at": run.completed_at,
                 "log_path": run.log_path,
-                "stats": run.stats_json
+                "stats": run.stats_json,
+                "error_message": run.error_message,
             }
             for run in extraction_runs
         ]

@@ -23,10 +23,20 @@ class Settings(BaseSettings):
     # Processing limits
     max_pdf_size: str = "50MB"
     min_chars_for_native_text: int = 200
-    processing_max_workers: int = 4  # Increased for faster processing
+    processing_max_workers: int = 1  # Default single-page processing
     processing_db_commit_interval: int = 5
+    ocr_image_dpi: int = 250
     ocr_enabled: bool = True
     ocr_languages: str = "eng"
+    archive_after_days: int = 5
+
+    # Google Drive archiving
+    gdrive_enabled: bool = False
+    gdrive_folder_id: str | None = None
+    gdrive_service_account_file: str | None = None
+
+    # Logs
+    processing_log_dir: str = "./storage/logs"
 
     # Development
     debug: bool = False
@@ -51,3 +61,4 @@ settings = get_settings()
 os.makedirs(settings.storage_path, exist_ok=True)
 os.makedirs(os.path.join(settings.storage_path, "editions"), exist_ok=True)
 os.makedirs(os.path.join(settings.storage_path, "pages"), exist_ok=True)
+os.makedirs(settings.processing_log_dir, exist_ok=True)

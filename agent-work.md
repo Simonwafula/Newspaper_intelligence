@@ -45,6 +45,33 @@
 
 ---
 
+## Current Work: Page-by-Page Processing + Archiving (2025-02-12)
+
+### Goals
+- Implement page-by-page processing with per-page status/progress and UI progress bar
+- Add hot->cold (Google Drive) archival after 5 days with scheduled job
+- Keep public/private access rules intact
+
+### TODO
+- [ ] Run Alembic migration for new Edition/Page/ExtractionRun fields
+- [ ] Verify processing pipeline on sample PDFs (progress increments, partial items)
+- [ ] Verify public covers render and archived editions remain searchable
+- [ ] Configure systemd timer for archive job on VPS
+- [ ] Run tests for processing + archiving (see commands below)
+
+### Definition of Done (DoD)
+- [ ] Alembic migration applied in dev/prod
+- [ ] `pytest` passes for new progress + archive tests
+- [ ] Manual UI check: progress bar updates + partial items visible while PROCESSING
+- [ ] Archive job runs and moves a PDF to Drive without public links
+
+### Verification Commands
+```bash
+cd backend
+pytest tests/test_processing_progress.py tests/test_archive_service.py
+alembic upgrade head
+```
+
 ## Project Goal
 
 Build a web application that transforms newspaper PDFs into searchable, structured intelligence. Users upload newspaper editions, and the system extracts articles, advertisements, and classifieds using OCR and layout analysis. The platform makes historical newspapers searchable and exportable, focusing on reliability and accuracy over complex ML models.

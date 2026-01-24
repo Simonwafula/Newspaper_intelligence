@@ -1,0 +1,19 @@
+[Unit]
+Description=Newspaper Intelligence PDF Archive Job
+After=network.target
+
+[Service]
+Type=oneshot
+User=magms2596
+Group=magms2596
+WorkingDirectory=/home/mag.mstatilitechnologies.com/public_html
+Environment=PATH=/home/mag.mstatilitechnologies.com/.venv/bin
+EnvironmentFile=/home/mag.mstatilitechnologies.com/.env
+ExecStart=/home/mag.mstatilitechnologies.com/.venv/bin/python -m app.cli.archive_editions
+
+StandardOutput=append:/home/mag.mstatilitechnologies.com/logs/archive.log
+StandardError=append:/home/mag.mstatilitechnologies.com/logs/archive-error.log
+SyslogIdentifier=mag-newspaper-archive
+
+[Install]
+WantedBy=multi-user.target

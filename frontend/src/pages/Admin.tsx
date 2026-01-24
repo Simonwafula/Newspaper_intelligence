@@ -194,7 +194,7 @@ const Admin = () => {
                   Edition: {new Date(lastEdition.edition_date).toLocaleDateString()}
                 </div>
                 <div className="mt-2">
-                  <StatusBadge status={lastEdition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'} />
+                  <StatusBadge status={lastEdition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED'} />
                 </div>
               </div>
 

@@ -46,46 +46,7 @@ class PDFProcessor:
         """
         try:
             doc = fitz.open(file_path)
-            pages = []
-
-            for page_num in range(len(doc)):
-                text, needs_ocr = self.extract_page_text(doc, page_num)
-
-                # Get page dimensions
-                page = doc[page_num]
-                rect = page.rect
-                page_info = {
-                    'page_number': page_num + 1,
-                    'extracted_text': text,
-                    'needs_ocr': needs_ocr,
-                    'width': rect.width,
-                    'height': rect.height,
-                    'text_blocks': []
-                }
-
-                # Extract text blocks with coordinates
-                if not needs_ocr:
-                    try:
-                        blocks = page.get_text("dict")["blocks"]
-                        for block in blocks:
-                            if "lines" in block:
-                                block_text = ""
-                                for line in block["lines"]:
-                                    line_text = ""
-                                    for span in line["spans"]:
-                                        line_text += span["text"]
-                                    block_text += line_text + "\n"
-
-                                if block_text.strip():
-                                    page_info['text_blocks'].append({
-                                        'text': block_text.strip(),
-                                        'bbox': block['bbox'],  # (x0, y0, x1, y1)
-                                        'type': 'text'
-                                    })
-                    except Exception as e:
-                        logger.warning(f"Error extracting text blocks from page {page_num + 1}: {e}")
-
-                pages.append(page_info)
+            pages = [self.get_page_data(doc, page_num) for page_num in range(len(doc))]
 
             doc.close()
             return pages
@@ -129,6 +90,44 @@ class PDFProcessor:
         except Exception as e:
             logger.error(f"Error getting page count for {file_path}: {e}")
             raise
+
+    def get_page_data(self, doc: fitz.Document, page_num: int) -> dict:
+        """Extract text blocks and metadata for a single page."""
+        text, needs_ocr = self.extract_page_text(doc, page_num)
+
+        page = doc[page_num]
+        rect = page.rect
+        page_info = {
+            'page_number': page_num + 1,
+            'extracted_text': text,
+            'needs_ocr': needs_ocr,
+            'width': rect.width,
+            'height': rect.height,
+            'text_blocks': []
+        }
+
+        if not needs_ocr:
+            try:
+                blocks = page.get_text("dict")["blocks"]
+                for block in blocks:
+                    if "lines" in block:
+                        block_text = ""
+                        for line in block["lines"]:
+                            line_text = ""
+                            for span in line["spans"]:
+                                line_text += span["text"]
+                            block_text += line_text + "\n"
+
+                        if block_text.strip():
+                            page_info['text_blocks'].append({
+                                'text': block_text.strip(),
+                                'bbox': block['bbox'],
+                                'type': 'text'
+                            })
+            except Exception as e:
+                logger.warning(f"Error extracting text blocks from page {page_num + 1}: {e}")
+
+        return page_info
 
 
 def create_pdf_processor(min_chars_for_native_text: int = 200) -> PDFProcessor:

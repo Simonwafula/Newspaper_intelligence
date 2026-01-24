@@ -1,18 +1,17 @@
 from datetime import UTC, datetime, timedelta
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models import AccessRequest, AccessRequestStatus, Edition
-from app.schemas import (
-    AccessRequestCreate,
-    AccessRequestResponse,
-    EditionPublicResponse,
-)
+from app.schemas import AccessRequestCreate, AccessRequestResponse, EditionPublicResponse
+from app.settings import settings
 
-router = APIRouter()
+router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 # Simple in-memory rate limiter for basic protection
@@ -64,50 +63,56 @@ async def list_public_editions(
     Returns:
         List of public edition information
     """
-    # Query only public-safe fields
     editions = db.query(Edition).filter(
-        # Only show READY editions to public
-        Edition.status == "READY"
+        Edition.status.in_(["READY", "ARCHIVED"])
     ).order_by(
         Edition.edition_date.desc()
     ).offset(skip).limit(limit).all()
 
-    return [
-        EditionPublicResponse.model_validate(edition)
-        for edition in editions
-    ]
+    results = []
+    for edition in editions:
+        cover_path = edition.cover_image_path or os.path.join(
+            settings.storage_path, "covers", f"{edition.id}.png"
+        )
+        cover_url = None
+        if os.path.exists(cover_path):
+            rel_path = os.path.relpath(cover_path, settings.storage_path)
+            cover_url = f"/files/{rel_path.replace(os.sep, '/')}"
+
+        results.append(
+            EditionPublicResponse(
+                id=edition.id,
+                newspaper_name=edition.newspaper_name,
+                edition_date=edition.edition_date,
+                status=edition.status,
+                cover_image_url=cover_url,
+            )
+        )
+
+    return results
 
 
-@router.get("/editions/{edition_id}", response_model=EditionPublicResponse)
-async def get_public_edition(
+@router.get("/editions/{edition_id}/cover")
+async def get_public_cover(
     edition_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Get public information about a specific edition.
-
-    Provides basic edition information without requiring authentication.
-    Only works for editions that are in READY status.
-
-    Args:
-        edition_id: ID of the edition
-        db: Database session
-
-    Returns:
-        Public edition information
-
-    Raises:
-        HTTPException: If edition not found or not ready
-    """
+    """Return cover image for public access."""
     edition = db.query(Edition).filter(
         Edition.id == edition_id,
-        Edition.status == "READY"  # Only show ready editions
+        Edition.status.in_(["READY", "ARCHIVED"])
     ).first()
 
     if not edition:
         raise HTTPException(status_code=404, detail="Edition not found")
 
-    return EditionPublicResponse.model_validate(edition)
+    cover_path = edition.cover_image_path or os.path.join(
+        settings.storage_path, "covers", f"{edition.id}.png"
+    )
+    if not os.path.exists(cover_path):
+        raise HTTPException(status_code=404, detail="Cover not found")
+
+    return FileResponse(cover_path)
 
 
 @router.post("/access-requests", response_model=AccessRequestResponse)

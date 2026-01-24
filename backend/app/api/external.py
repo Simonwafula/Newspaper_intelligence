@@ -324,7 +324,8 @@ async def get_editions(
             "id": edition.id,
             "newspaper_name": edition.newspaper_name,
             "edition_date": edition.edition_date.isoformat(),
-            "num_pages": edition.num_pages,
+            "num_pages": edition.total_pages,
+            "total_pages": edition.total_pages,
             "status": edition.status,
             "created_at": edition.created_at.isoformat()
         })
@@ -403,7 +404,8 @@ async def get_edition_items(
             "id": edition.id,
             "newspaper_name": edition.newspaper_name,
             "edition_date": edition.edition_date.isoformat(),
-            "num_pages": edition.num_pages,
+            "num_pages": edition.total_pages,
+            "total_pages": edition.total_pages,
             "status": edition.status
         },
         "items": result,

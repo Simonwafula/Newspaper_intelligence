@@ -32,13 +32,14 @@ export function Badge({ children, variant = 'default', className = '' }: BadgePr
 }
 
 // Status badge specifically for Edition status
-type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
+type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED';
 
 const statusVariants: Record<EditionStatus, BadgeVariant> = {
   UPLOADED: 'blue',
   PROCESSING: 'amber',
   READY: 'green',
   FAILED: 'red',
+  ARCHIVED: 'purple',
 };
 
 export function StatusBadge({ status }: { status: EditionStatus }) {

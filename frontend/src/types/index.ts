@@ -1,4 +1,6 @@
-export type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
+export type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED';
+export type EditionStage = 'QUEUED' | 'EXTRACT' | 'OCR' | 'LAYOUT' | 'INDEX' | 'DONE';
+export type ArchiveStatus = 'NOT_SCHEDULED' | 'SCHEDULED' | 'ARCHIVING' | 'ARCHIVED' | 'ARCHIVE_FAILED';
 
 export type ItemType = 'STORY' | 'AD' | 'CLASSIFIED';
 
@@ -9,10 +11,16 @@ export interface Edition {
   newspaper_name: string;
   edition_date: string;
   file_hash: string;
-  num_pages: number;
-  pages_processed: number;
+  total_pages: number;
+  processed_pages: number;
   status: EditionStatus;
-  error_message?: string;
+  current_stage: EditionStage;
+  archive_status: ArchiveStatus;
+  archived_at?: string;
+  storage_backend: 'local' | 'gdrive';
+  storage_key?: string;
+  cover_image_path?: string;
+  last_error?: string;
   created_at: string;
   processed_at?: string;
 }
@@ -36,6 +44,10 @@ export interface Page {
   id: number;
   edition_id: number;
   page_number: number;
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
+  char_count: number;
+  ocr_used: boolean;
+  error_message?: string;
   image_path?: string;
   extracted_text?: string;
   created_at: string;

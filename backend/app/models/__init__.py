@@ -69,12 +69,19 @@ class Edition(Base):
     edition_date = Column(DateTime, nullable=False, index=True)
     file_hash = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256
     file_path = Column(String(500), nullable=False)
-    num_pages = Column(Integer, nullable=False, default=0)
-    pages_processed = Column(Integer, nullable=False, default=0)  # Progress tracking
+    pdf_local_path = Column(String(500), nullable=True)
+    storage_backend = Column(String(20), nullable=False, default="local", index=True)
+    storage_key = Column(String(500), nullable=True)
+    total_pages = Column(Integer, nullable=False, default=0)
+    processed_pages = Column(Integer, nullable=False, default=0)  # Progress tracking
+    current_stage = Column(String(20), nullable=False, default="QUEUED", index=True)
 
     # Processing status
-    status = Column(String(20), nullable=False, default="UPLOADED", index=True)  # UPLOADED, PROCESSING, READY, FAILED
-    error_message = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="UPLOADED", index=True)  # UPLOADED, PROCESSING, READY, FAILED, ARCHIVED
+    last_error = Column(Text, nullable=True)
+    archive_status = Column(String(20), nullable=False, default="SCHEDULED", index=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    cover_image_path = Column(String(500), nullable=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -92,6 +99,10 @@ class Page(Base):
     id = Column(Integer, primary_key=True, index=True)
     edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False)
     page_number = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False, default="PENDING", index=True)
+    char_count = Column(Integer, nullable=False, default=0)
+    ocr_used = Column(Boolean, nullable=False, default=False)
+    error_message = Column(Text, nullable=True)
 
     # Files and content
     image_path = Column(String(500), nullable=True)  # OCR image if needed
@@ -158,6 +169,9 @@ class ExtractionRun(Base):
     # Run metadata
     version = Column(String(20), nullable=False, default="1.0")
     success = Column(Boolean, nullable=False, default=False)
+    status = Column(String(20), nullable=False, default="RUNNING", index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
 
     # Timing
     started_at = Column(DateTime(timezone=True), server_default=func.now())

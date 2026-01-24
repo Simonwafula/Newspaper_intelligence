@@ -79,3 +79,5 @@ ralph-history.json
 ralph-loop.state.json
 ask.sh
 .opencode.json
+.opencode/
+opencode.json

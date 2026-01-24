@@ -141,13 +141,13 @@ const EditionsLibrary = () => {
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-ink-800">
-              {editions.reduce((sum, e) => sum + e.num_pages, 0)}
+              {editions.reduce((sum, e) => sum + e.total_pages, 0)}
             </div>
             <div className="text-sm text-stone-600">Total Pages</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-3xl font-bold text-ink-800">
-              {editions.filter(e => e.status === 'READY').length}
+              {editions.filter(e => e.status === 'READY' || e.status === 'ARCHIVED').length}
             </div>
             <div className="text-sm text-stone-600">Processed</div>
           </Card>
@@ -173,7 +173,7 @@ const EditionsLibrary = () => {
                     <h3 className="text-lg font-semibold text-ink-800 line-clamp-1">
                       {edition.newspaper_name}
                     </h3>
-                    <StatusBadge status={edition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED'} />
+                    <StatusBadge status={edition.status as 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED'} />
                   </div>
 
                   <div className="space-y-1 text-sm text-stone-600">
@@ -183,7 +183,7 @@ const EditionsLibrary = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Pages:</span>
-                      <span className="font-medium">{edition.num_pages}</span>
+                      <span className="font-medium">{edition.total_pages}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Uploaded:</span>
@@ -191,9 +191,30 @@ const EditionsLibrary = () => {
                     </div>
                   </div>
 
-                  {edition.error_message && (
+                  {(edition.status === 'UPLOADED' || edition.status === 'PROCESSING') && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-amber-700 mb-1">
+                        <span>
+                          Processed {edition.processed_pages} of {edition.total_pages} pages
+                        </span>
+                        <span>{edition.current_stage}</span>
+                      </div>
+                      <div className="h-2 w-full bg-amber-100 rounded">
+                        <div
+                          className="h-2 bg-amber-400 rounded"
+                          style={{
+                            width: edition.total_pages
+                              ? `${Math.min(100, Math.round((edition.processed_pages / edition.total_pages) * 100))}%`
+                              : '0%',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {edition.last_error && (
                     <div className="mt-3 p-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded">
-                      {edition.error_message}
+                      {edition.last_error}
                     </div>
                   )}
                 </Card>

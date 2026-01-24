@@ -5,8 +5,8 @@ interface Edition {
   id: number;
   newspaper_name: string;
   edition_date: string;
-  num_pages: number;
-  status: string;
+  status?: string;
+  cover_image_url?: string;
 }
 
 export default function PublicLandingPage() {
@@ -110,17 +110,25 @@ export default function PublicLandingPage() {
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
               >
                 <div className="aspect-w-3 aspect-h-4 bg-stone-200">
-                  {/* Placeholder for cover image - in real implementation, this would be the first page */}
-                  <div className="w-full h-48 bg-stone-300 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-2xl font-serif text-stone-600 mb-2">
-                        {edition.newspaper_name}
-                      </div>
-                      <div className="text-sm text-stone-500">
-                        {formatDate(edition.edition_date)}
+                  {edition.cover_image_url ? (
+                    <img
+                      src={edition.cover_image_url}
+                      alt={`${edition.newspaper_name} cover`}
+                      className="w-full h-48 object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-stone-300 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-2xl font-serif text-stone-600 mb-2">
+                          {edition.newspaper_name}
+                        </div>
+                        <div className="text-sm text-stone-500">
+                          {formatDate(edition.edition_date)}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 
                 <div className="p-4">
@@ -130,18 +138,15 @@ export default function PublicLandingPage() {
                   <p className="text-sm text-ink-600 mb-4">
                     {formatDate(edition.edition_date)}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-ink-500">
-                      {edition.num_pages} pages
-                    </span>
+                  {edition.status && (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      edition.status === 'READY' 
-                        ? 'bg-green-100 text-green-800' 
+                      edition.status === 'READY' || edition.status === 'ARCHIVED'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
                       {edition.status}
                     </span>
-                  </div>
+                  )}
                 </div>
 
                 <div className="px-4 pb-4">
