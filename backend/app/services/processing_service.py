@@ -219,11 +219,15 @@ class ProcessingService:
             extraction_run.status = "SUCCESS"
             extraction_run.finished_at = datetime.now(UTC)
             extraction_run.completed_at = datetime.now(UTC)
+            started_at = extraction_run.started_at or datetime.now(UTC)
+            if started_at.tzinfo is None:
+                started_at = started_at.replace(tzinfo=UTC)
+
             stats.update({
                 "processed_pages": processed_pages,
                 "pages_with_ocr": pages_with_ocr,
                 "total_items": total_items,
-                "processing_time": (datetime.now(UTC) - extraction_run.started_at).total_seconds(),
+                "processing_time": (datetime.now(UTC) - started_at).total_seconds(),
             })
             extraction_run.stats_json = dict(stats)
 
