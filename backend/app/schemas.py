@@ -11,6 +11,7 @@ class EditionStatus(str, Enum):
     READY = "READY"
     FAILED = "FAILED"
     ARCHIVED = "ARCHIVED"
+    CANCELLED = "CANCELLED"
 
 
 class EditionStage(str, Enum):

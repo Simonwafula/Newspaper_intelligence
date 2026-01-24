@@ -1,4 +1,4 @@
-export type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED';
+export type EditionStatus = 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED' | 'ARCHIVED' | 'CANCELLED';
 export type EditionStage = 'QUEUED' | 'EXTRACT' | 'OCR' | 'LAYOUT' | 'INDEX' | 'DONE';
 export type ArchiveStatus = 'NOT_SCHEDULED' | 'SCHEDULED' | 'ARCHIVING' | 'ARCHIVED' | 'ARCHIVE_FAILED';
 
