@@ -10,6 +10,7 @@ export interface Edition {
   edition_date: string;
   file_hash: string;
   num_pages: number;
+  pages_processed: number;
   status: EditionStatus;
   error_message?: string;
   created_at: string;

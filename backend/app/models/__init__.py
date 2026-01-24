@@ -70,6 +70,7 @@ class Edition(Base):
     file_hash = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256
     file_path = Column(String(500), nullable=False)
     num_pages = Column(Integer, nullable=False, default=0)
+    pages_processed = Column(Integer, nullable=False, default=0)  # Progress tracking
 
     # Processing status
     status = Column(String(20), nullable=False, default="UPLOADED", index=True)  # UPLOADED, PROCESSING, READY, FAILED

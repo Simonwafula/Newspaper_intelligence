@@ -27,13 +27,7 @@ const EditionDetail = () => {
   const { data: edition, isLoading: editionLoading, error: editionError } = useQuery({
     queryKey: ['edition', editionId],
     queryFn: () => editionsApi.getEdition(editionId),
-  });
-
-  const { data: processingStatus } = useQuery({
-    queryKey: ['processing-status', editionId],
-    queryFn: () => editionsApi.getProcessingStatus(editionId),
-    enabled: !!edition && (edition.status === 'PROCESSING' || edition.status === 'FAILED'),
-    refetchInterval: edition?.status === 'PROCESSING' ? 2000 : false,
+    refetchInterval: (query) => query.state.data?.status === 'PROCESSING' ? 2000 : false,
   });
 
   const { data: items, isLoading: itemsLoading } = useQuery({
@@ -106,9 +100,7 @@ const EditionDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['edition', editionId] });
       queryClient.invalidateQueries({ queryKey: ['processing-status', editionId] });
-      setTimeout(() => {
-        processMutation.mutate();
-      }, 500);
+      // Processing is now started automatically by the backend
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -141,18 +133,13 @@ const EditionDetail = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getNumber = (value: unknown) =>
-    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-
-  const latestRunStats = processingStatus?.extraction_runs?.[0]?.stats as
-    | Record<string, unknown>
-    | undefined;
-  const totalPages = getNumber(latestRunStats?.total_pages);
-  const pagesProcessed = getNumber(latestRunStats?.pages_processed);
+  // Use edition.pages_processed for real-time progress (updated by backend)
+  const totalPages = edition?.num_pages ?? 0;
+  const pagesProcessed = edition?.pages_processed ?? 0;
   const progressPct =
-    totalPages && pagesProcessed !== undefined
+    totalPages > 0
       ? Math.min(100, Math.round((pagesProcessed / totalPages) * 100))
-      : undefined;
+      : 0;
 
   if (editionLoading) {
     return (

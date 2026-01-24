@@ -177,6 +177,9 @@ class ProcessingService:
                     stats['total_items'] = total_items
                     extraction_run.stats_json = dict(stats)
 
+                # Update edition.pages_processed for real-time progress tracking
+                edition.pages_processed = pages_processed  # type: ignore
+
                 pending_commits += 1
                 if pending_commits >= commit_interval or pages_processed == num_pages:
                     db.commit()

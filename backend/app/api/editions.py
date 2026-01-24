@@ -319,6 +319,7 @@ async def get_edition(
 @router.post("/{edition_id}/reprocess", response_model=EditionResponse)
 async def reprocess_edition(
     edition_id: int,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
     _: None = Depends(get_admin_user)
 ):
@@ -332,12 +333,23 @@ async def reprocess_edition(
             detail="Edition not found"
         )
 
-    # Reset status to trigger reprocessing
-    edition.status = EditionStatus.UPLOADED  # type: ignore
+    # Check if already processing
+    if edition.status == EditionStatus.PROCESSING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Edition is already being processed"
+        )
+
+    # Reset status and progress for reprocessing
+    edition.status = EditionStatus.PROCESSING  # type: ignore
+    edition.pages_processed = 0  # type: ignore
     edition.error_message = None  # type: ignore
     edition.processed_at = None  # type: ignore
 
     db.commit()
     db.refresh(edition)
+
+    # Add background task to reprocess
+    background_tasks.add_task(run_processing_task, edition_id)
 
     return edition

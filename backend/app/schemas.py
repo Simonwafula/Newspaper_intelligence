@@ -45,6 +45,7 @@ class EditionResponse(BaseModel):
     edition_date: datetime
     file_hash: str
     num_pages: int
+    pages_processed: int = 0
     status: EditionStatus
     error_message: str | None = None
     created_at: datetime
