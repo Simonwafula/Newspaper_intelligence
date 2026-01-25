@@ -4,7 +4,9 @@ try:
     import io
 
     import pytesseract
-    from PIL import Image
+from PIL import Image
+
+from app.settings import settings
     TESSERACT_AVAILABLE = True
 except ImportError:
     TESSERACT_AVAILABLE = False
@@ -29,6 +31,8 @@ class OCRService:
         if not self.available:
             logger.warning("OCR functionality disabled - Tesseract not installed")
         else:
+            if settings.tesseract_cmd:
+                pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
             # Test if tesseract is actually available
             try:
                 pytesseract.get_tesseract_version()

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ocr_image_dpi: int = 250
     ocr_enabled: bool = True
     ocr_languages: str = "eng"
+    tesseract_cmd: str | None = None
     archive_after_days: int = 5
 
     # Google Drive archiving
