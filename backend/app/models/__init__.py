@@ -93,6 +93,7 @@ class Edition(Base):
     pages = relationship("Page", back_populates="edition", cascade="all, delete-orphan")
     items = relationship("Item", back_populates="edition", cascade="all, delete-orphan")
     extraction_runs = relationship("ExtractionRun", back_populates="edition", cascade="all, delete-orphan")
+    story_groups = relationship("StoryGroup", back_populates="edition", cascade="all, delete-orphan")
 
 
 class Page(Base):
@@ -158,6 +159,34 @@ class Item(Base):
     edition = relationship("Edition", back_populates="items")
     page = relationship("Page", back_populates="items")
     categories = relationship("ItemCategory", back_populates="item", cascade="all, delete-orphan")
+    story_group_items = relationship("StoryGroupItem", back_populates="item", cascade="all, delete-orphan")
+
+
+class StoryGroup(Base):
+    __tablename__ = "story_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False, index=True)
+    title = Column(Text, nullable=True)
+    pages_json = Column(JSON, nullable=False, default=list)
+    excerpt = Column(Text, nullable=True)
+    full_text = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    edition = relationship("Edition", back_populates="story_groups")
+    items = relationship("StoryGroupItem", back_populates="story_group", cascade="all, delete-orphan")
+
+
+class StoryGroupItem(Base):
+    __tablename__ = "story_group_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    story_group_id = Column(Integer, ForeignKey("story_groups.id"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False, index=True)
+    order_index = Column(Integer, nullable=False, default=0)
+
+    story_group = relationship("StoryGroup", back_populates="items")
+    item = relationship("Item", back_populates="story_group_items")
     favorited_by = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
     collection_items = relationship("CollectionItem", back_populates="item", cascade="all, delete-orphan")
 

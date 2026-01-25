@@ -11,6 +11,7 @@ from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
 from app.services.ocr_service import create_ocr_service
 from app.services.pdf_processor import create_pdf_processor
+from app.services.story_grouping import persist_story_groups
 from app.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -251,6 +252,13 @@ class ProcessingService:
                     )
             except Exception as e:
                 logger.warning(f"Category classification failed: {e}")
+
+            if settings.story_grouping_enabled:
+                try:
+                    grouped_count = persist_story_groups(db, edition_id)
+                    logger.info("Persisted %s story groups", grouped_count)
+                except Exception as e:
+                    logger.warning(f"Story grouping failed: {e}")
 
             append_log("Processing completed")
             db.commit()

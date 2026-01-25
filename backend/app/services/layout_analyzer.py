@@ -5,6 +5,12 @@ from .classifieds_intelligence import create_classifieds_intelligence
 
 logger = logging.getLogger(__name__)
 
+CONTACT_RE = re.compile(r"(\+?\d{1,3}[\s\-])?(?:\(?\d{2,4}\)?[\s\-])?\d{3,4}[\s\-]\d{3,4}")
+EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+URL_RE = re.compile(r"(https?://|www\.)", re.IGNORECASE)
+PRICE_RE = re.compile(r"\b(KSH|KES|USD|EUR|GBP|SHS|SH)\b|\$\s?\d|€\s?\d", re.IGNORECASE)
+ACTION_RE = re.compile(r"\b(apply|send|call|contact|email|dial|sms|whatsapp)\b", re.IGNORECASE)
+
 
 class LayoutAnalyzer:
     """Analyzes PDF layout to extract headlines, stories, and classifieds."""
@@ -108,11 +114,20 @@ class LayoutAnalyzer:
             Tuple of (item_type, subtype)
         """
         text_upper = text.upper()
+        text_len = len(text)
+        word_count = len(text.split())
+        has_contact = bool(CONTACT_RE.search(text) or EMAIL_RE.search(text) or URL_RE.search(text))
+        has_price = bool(PRICE_RE.search(text))
+        has_action = bool(ACTION_RE.search(text))
 
         # Check for classified patterns
         for subtype, patterns in self.classified_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, text_upper, re.IGNORECASE):
+                    if subtype == 'PROPERTY' and not (has_contact or has_price):
+                        return 'STORY', None
+                    if word_count > 120 and not (has_contact or has_price or has_action):
+                        return 'STORY', None
                     return 'CLASSIFIED', subtype
 
         # Check for general advertisement indicators
@@ -125,6 +140,8 @@ class LayoutAnalyzer:
 
         ad_score = sum(1 for pattern in ad_indicators if re.search(pattern, text_upper))
         if ad_score >= 2:  # Require at least 2 ad indicators
+            if word_count > 120 and not (has_contact or has_price):
+                return 'STORY', None
             return 'AD', 'ADVERTISEMENT'
 
         # Default to story

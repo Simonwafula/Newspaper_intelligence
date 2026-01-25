@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_reader_user
 from app.db.database import get_db
-from app.models import Category, Edition, Item, ItemCategory
+from app.models import Category, Edition, Item, ItemCategory, StoryGroup, StoryGroupItem
 from app.schemas import ItemSubtype, ItemType, ItemWithCategoriesResponse, StoryGroupResponse
 from app.services.story_grouping import build_story_groups
+from app.settings import settings
 
 router = APIRouter()
 
@@ -89,6 +90,42 @@ async def get_story_groups(
     if not edition:
         raise HTTPException(status_code=404, detail="Edition not found")
 
+    groups = (
+        db.query(StoryGroup)
+        .filter(StoryGroup.edition_id == edition_id)
+        .order_by(StoryGroup.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    if groups:
+        results = []
+        for group in groups:
+            item_ids = [
+                item.item_id
+                for item in db.query(StoryGroupItem)
+                .filter(StoryGroupItem.story_group_id == group.id)
+                .order_by(StoryGroupItem.order_index)
+                .all()
+            ]
+            results.append(
+                StoryGroupResponse(
+                    group_id=group.id,
+                    edition_id=group.edition_id,
+                    title=group.title,
+                    pages=group.pages_json or [],
+                    item_ids=item_ids,
+                    items_count=len(item_ids),
+                    excerpt=group.excerpt,
+                    full_text=None,
+                )
+            )
+        return results
+
+    if not settings.story_grouping_enabled:
+        return []
+
     items = (
         db.query(Item)
         .filter(Item.edition_id == edition_id, Item.item_type == ItemType.STORY)
@@ -119,25 +156,55 @@ async def get_story_group(
     db: Session = Depends(get_db),
     _user = Depends(get_reader_user)
 ):
-    items = (
-        db.query(Item)
-        .filter(Item.edition_id == edition_id, Item.item_type == ItemType.STORY)
-        .order_by(Item.page_number, Item.id)
-        .all()
+    group = (
+        db.query(StoryGroup)
+        .filter(StoryGroup.id == group_id, StoryGroup.edition_id == edition_id)
+        .first()
     )
-    groups = build_story_groups(items)
-    for group in groups:
-        if group.group_id == group_id:
-            return StoryGroupResponse(
-                group_id=group.group_id,
-                edition_id=group.edition_id,
-                title=group.title,
-                pages=group.pages,
-                item_ids=group.item_ids,
-                items_count=len(group.item_ids),
-                excerpt=group.excerpt,
-                full_text=group.full_text,
-            )
+    if group:
+        group_items = (
+            db.query(StoryGroupItem, Item)
+            .join(Item, Item.id == StoryGroupItem.item_id)
+            .filter(StoryGroupItem.story_group_id == group.id)
+            .order_by(StoryGroupItem.order_index)
+            .all()
+        )
+        item_ids = [item.id for _, item in group_items]
+        full_text = group.full_text
+        if not full_text:
+            parts = [item.text for _, item in group_items if item.text]
+            full_text = "\n\n".join(parts) if parts else None
+        return StoryGroupResponse(
+            group_id=group.id,
+            edition_id=group.edition_id,
+            title=group.title,
+            pages=group.pages_json or [],
+            item_ids=item_ids,
+            items_count=len(item_ids),
+            excerpt=group.excerpt,
+            full_text=full_text,
+        )
+
+    if settings.story_grouping_enabled:
+        items = (
+            db.query(Item)
+            .filter(Item.edition_id == edition_id, Item.item_type == ItemType.STORY)
+            .order_by(Item.page_number, Item.id)
+            .all()
+        )
+        groups = build_story_groups(items)
+        for group in groups:
+            if group.group_id == group_id:
+                return StoryGroupResponse(
+                    group_id=group.group_id,
+                    edition_id=group.edition_id,
+                    title=group.title,
+                    pages=group.pages,
+                    item_ids=group.item_ids,
+                    items_count=len(group.item_ids),
+                    excerpt=group.excerpt,
+                    full_text=group.full_text,
+                )
 
     raise HTTPException(status_code=404, detail="Story group not found")
 

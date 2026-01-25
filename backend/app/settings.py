@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     ocr_enabled: bool = True
     ocr_languages: str = "eng"
     tesseract_cmd: str | None = None
+
+    # Story grouping
+    story_grouping_enabled: bool = True
+    story_grouping_page_window: int = 2
+    story_grouping_similarity_threshold: float = 0.35
+    story_grouping_min_shared_tokens: int = 3
     archive_after_days: int = 5
 
     # Google Drive archiving
