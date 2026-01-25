@@ -119,12 +119,26 @@ class LayoutAnalyzer:
         has_contact = bool(CONTACT_RE.search(text) or EMAIL_RE.search(text) or URL_RE.search(text))
         has_price = bool(PRICE_RE.search(text))
         has_action = bool(ACTION_RE.search(text))
+        sentence_count = len(re.findall(r"[.!?]", text))
+
+        def looks_like_story() -> bool:
+            if word_count >= 80 and sentence_count >= 3 and not (has_contact or has_price or has_action):
+                return True
+            return False
 
         # Check for classified patterns
         for subtype, patterns in self.classified_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, text_upper, re.IGNORECASE):
-                    if subtype == 'PROPERTY' and not (has_contact or has_price):
+                    if looks_like_story():
+                        return 'STORY', None
+                    if subtype == 'PROPERTY' and not (has_contact or has_price or has_action or word_count <= 40):
+                        return 'STORY', None
+                    if subtype == 'JOB' and not (has_contact or has_action or word_count <= 60):
+                        return 'STORY', None
+                    if subtype == 'NOTICE' and not (has_contact or word_count <= 60):
+                        return 'STORY', None
+                    if subtype in {'TENDER', 'AUCTION'} and not (has_contact or has_action or word_count <= 80):
                         return 'STORY', None
                     if word_count > 120 and not (has_contact or has_price or has_action):
                         return 'STORY', None
@@ -140,6 +154,8 @@ class LayoutAnalyzer:
 
         ad_score = sum(1 for pattern in ad_indicators if re.search(pattern, text_upper))
         if ad_score >= 2:  # Require at least 2 ad indicators
+            if looks_like_story():
+                return 'STORY', None
             if word_count > 120 and not (has_contact or has_price):
                 return 'STORY', None
             return 'AD', 'ADVERTISEMENT'
