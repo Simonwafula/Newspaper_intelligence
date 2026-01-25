@@ -116,7 +116,7 @@ class ItemResponse(BaseModel):
     subtype: ItemSubtype | None = None
     title: str | None = None
     text: str | None = None
-    bbox_json: dict | None = None
+    bbox_json: dict | list | None = None
     extracted_entities_json: dict | None = None
     contact_info_json: dict | None = None
     price_info_json: dict | None = None
