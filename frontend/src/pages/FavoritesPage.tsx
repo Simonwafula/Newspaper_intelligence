@@ -103,7 +103,7 @@ const FavoritesPage: React.FC = () => {
                             <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 mt-auto flex justify-between items-center text-xs text-gray-500">
                                 <span>Page {favorite.item?.page_number}</span>
                                 <Link
-                                    to={`/editions/${favorite.item?.edition_id}`}
+                                    to={`/app/editions/${favorite.item?.edition_id}`}
                                     className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                                 >
                                     View Edition

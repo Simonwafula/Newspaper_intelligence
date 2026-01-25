@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -82,7 +82,7 @@ function App() {
           </Route>
 
           {/* Redirect old routes */}
-          <Route path="/edition/:id" element={<Navigate to="/app/editions/:id" replace />} />
+          <Route path="/edition/:id" element={<EditionRedirect />} />
           <Route path="/search" element={<Navigate to="/app/search" replace />} />
           <Route path="/global-search" element={<Navigate to="/app/global-search" replace />} />
           <Route path="/saved-searches" element={<Navigate to="/app/saved-searches" replace />} />
@@ -98,6 +98,11 @@ function App() {
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+function EditionRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/app/editions/${id ?? ''}`} replace />;
 }
 
 export default App;

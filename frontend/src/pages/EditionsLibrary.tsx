@@ -167,7 +167,7 @@ const EditionsLibrary = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {editions.map((edition: Edition) => (
-              <Link key={edition.id} to={`/edition/${edition.id}`}>
+              <Link key={edition.id} to={`/app/editions/${edition.id}`}>
                 <Card hover className="h-full">
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="text-lg font-semibold text-ink-800 line-clamp-1">

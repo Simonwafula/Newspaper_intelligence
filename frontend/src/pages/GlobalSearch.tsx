@@ -197,7 +197,7 @@ const GlobalSearch = () => {
                 <Card key={result.item_id} hover>
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                     <Link
-                      to={`/edition/${result.edition_id}`}
+                      to={`/app/editions/${result.edition_id}`}
                       className="text-lg font-semibold text-ink-800 hover:text-ink-700"
                     >
                       {result.title || 'Untitled'}
@@ -219,7 +219,7 @@ const GlobalSearch = () => {
                     <span>{formatDate(result.edition_date)}</span>
                     <span>Page {result.page_number}</span>
                     <Link
-                      to={`/edition/${result.edition_id}`}
+                      to={`/app/editions/${result.edition_id}`}
                       className="text-ink-700 hover:text-ink-800 hover:underline"
                     >
                       View Edition
