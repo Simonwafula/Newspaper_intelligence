@@ -353,11 +353,6 @@ async def get_edition(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Edition not found"
         )
-    if edition.status != EditionStatus.READY:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Only READY editions can be archived"
-        )
     return edition
 
 
