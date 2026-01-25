@@ -64,7 +64,7 @@ class LayoutAnalyzer:
                 all_caps = text.isupper()
 
                 # Heuristic 3: Position-based (blocks near top are more likely headlines)
-                bbox = block.get('bbox', [0, 0, 0, 0])
+                bbox = list(block.get('bbox', [0, 0, 0, 0]))
                 y_position = bbox[1]  # y0 coordinate
                 is_near_top = y_position < 200  # Arbitrary threshold
 
@@ -150,7 +150,7 @@ class LayoutAnalyzer:
 
             # Find text blocks that come after this headline
             grouped_text = [headline['text']]
-            grouped_bbox = headline['bbox'].copy()
+            grouped_bbox = list(headline['bbox']) if headline.get('bbox') else [0, 0, 0, 0]
             used_blocks.add(headline_idx)
 
             # Look for subsequent blocks until next headline or end of page
@@ -170,7 +170,7 @@ class LayoutAnalyzer:
                 used_blocks.add(j)
 
                 # Expand bounding box to include this block
-                bbox = block.get('bbox', [0, 0, 0, 0])
+                bbox = list(block.get('bbox', [0, 0, 0, 0]))
                 if grouped_bbox:
                     grouped_bbox[0] = min(grouped_bbox[0], bbox[0])  # left
                     grouped_bbox[1] = min(grouped_bbox[1], bbox[1])  # top
@@ -222,7 +222,7 @@ class LayoutAnalyzer:
                 'text': text,
                 'item_type': item_type,
                 'subtype': subtype,
-                'bbox_json': block.get('bbox'),
+                'bbox_json': list(block.get('bbox', [0, 0, 0, 0])),
                 'confidence': 1.0,
                 'contact_info_json': structured_data.get('contact_info'),
                 'price_info_json': structured_data.get('price_info'),
