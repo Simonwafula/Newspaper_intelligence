@@ -92,14 +92,21 @@ class CategoryClassifier:
         unique_bonus = min(len(matched_keywords) * 15, 75)  # Max 75 points for variety
         frequency_bonus = min(total_score * 5, 25)  # Max 25 points for frequency
 
-        raw_score = unique_bonus + frequency_bonus
+        # Density bonus: If many keywords appear in a relatively short text
+        word_count = len(text_lower.split())
+        density = len(matched_keywords) / max(word_count, 1)
+        density_bonus = min(density * 500, 20)  # Max 20 points for density
+
+        raw_score = unique_bonus + frequency_bonus + density_bonus
 
         # Apply text length normalization (penalize very short texts)
         text_length = len(text_lower)
         if text_length < 50:  # Very short text
-            raw_score *= 0.7
+            raw_score *= 0.6
         elif text_length < 200:  # Short text
-            raw_score *= 0.85
+            raw_score *= 0.8
+        elif text_length > 5000:  # Very long text (e.g. grouped stories)
+            raw_score *= 1.1  # Slight boost for long, coherent text
 
         return min(raw_score, 100.0)
 

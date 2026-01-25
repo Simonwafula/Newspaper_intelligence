@@ -179,6 +179,61 @@ async def update_current_user_profile(
     return UserResponse.model_validate(updated_user)
 
 
+@router.get("/", response_model=list[UserResponse])
+async def list_all_users(
+    db: Session = Depends(get_db),
+    admin_user: UserResponse = Depends(get_current_admin_user)
+):
+    """List all users in the system. Admin only."""
+    from app.services.auth_service import list_users
+    users = list_users(db)
+    return [UserResponse.model_validate(u) for u in users]
+
+
+@router.post("/admin", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def admin_create_user(
+    user_create: UserCreate,
+    db: Session = Depends(get_db),
+    admin_user: UserResponse = Depends(get_current_admin_user)
+):
+    """Manually create a user with a specific role. Admin only."""
+    user = create_user(db, user_create)
+    return UserResponse.model_validate(user)
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin_user: UserResponse = Depends(get_current_admin_user)
+):
+    """Deactivate or remove a user. Admin only."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from app.services.auth_service import deactivate_user
+    deactivate_user(db, user)
+    return None
+
+
+@router.patch("/{user_id}/role", response_model=UserResponse)
+async def update_user_role_admin(
+    user_id: int,
+    role: str,
+    db: Session = Depends(get_db),
+    admin_user: UserResponse = Depends(get_current_admin_user)
+):
+    """Update a user's role. Admin only."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from app.services.auth_service import update_user_role
+    updated_user = update_user_role(db, user, role)
+    return UserResponse.model_validate(updated_user)
+
+
 @router.post("/logout")
 async def logout_user():
     """

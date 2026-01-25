@@ -194,6 +194,7 @@ class SavedSearchResponse(BaseModel):
 
 class UserRole(str, Enum):
     READER = "READER"
+    EDITOR = "EDITOR"
     ADMIN = "ADMIN"
 
 

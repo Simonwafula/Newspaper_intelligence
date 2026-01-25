@@ -197,7 +197,7 @@ export interface ClassificationStats {
 }
 
 // Auth types
-export type UserRole = 'READER' | 'ADMIN';
+export type UserRole = 'READER' | 'EDITOR' | 'ADMIN';
 
 export interface User {
   id: number;

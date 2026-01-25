@@ -22,6 +22,7 @@ const EditionDetail = () => {
   const [userFavorites, setUserFavorites] = useState<number[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [showCollectionMenu, setShowCollectionMenu] = useState<number | null>(null);
+  const [expandedStories, setExpandedStories] = useState<number[]>([]);
 
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
@@ -89,6 +90,16 @@ const EditionDetail = () => {
       alert('Added to collection');
     } catch (err) {
       console.error('Failed to add to collection', err);
+    }
+  };
+
+  const toggleStoryExpansion = (groupId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (expandedStories.includes(groupId)) {
+      setExpandedStories(expandedStories.filter(id => id !== groupId));
+    } else {
+      setExpandedStories([...expandedStories, groupId]);
     }
   };
 
@@ -376,27 +387,61 @@ const EditionDetail = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {storyGroups.map((group: StoryGroup) => (
-                    <Link
-                      key={group.group_id}
-                      to={`/app/stories/${editionId}/${group.group_id}`}
-                      className="block p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <h4 className="font-semibold text-ink-800">
-                          {group.title || 'Untitled Story'}
-                        </h4>
-                        <span className="text-xs text-stone-500">
-                          {group.pages.length > 0 ? `Pages ${group.pages.join(', ')}` : 'Pages unknown'}
-                        </span>
+                  {storyGroups.map((group: StoryGroup) => {
+                    const isExpanded = expandedStories.includes(group.group_id);
+                    return (
+                      <div
+                        key={group.group_id}
+                        className="block p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
+                      >
+                        <div
+                          className="flex items-start justify-between gap-3 mb-2 cursor-pointer"
+                          onClick={(e) => toggleStoryExpansion(group.group_id, e)}
+                        >
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-ink-800 flex items-center gap-2">
+                              {group.title || 'Untitled Story'}
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </h4>
+                            <span className="text-xs text-stone-500">
+                              {group.pages.length > 0 ? `Pages ${group.pages.join(', ')}` : 'Pages unknown'}
+                            </span>
+                          </div>
+                          <Link
+                            to={`/app/stories/${editionId}/${group.group_id}`}
+                            className="text-xs text-ink-700 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Open focused view
+                          </Link>
+                        </div>
+                        <div className="mt-2">
+                          <p className={`text-sm text-stone-600 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
+                            {isExpanded ? (group.full_text || group.excerpt) : group.excerpt}
+                          </p>
+                          {isExpanded && group.full_text && (
+                            <div className="mt-4 pt-4 border-t border-stone-100 flex justify-end">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(e) => toggleStoryExpansion(group.group_id, e)}
+                              >
+                                Collapse
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {group.excerpt && (
-                        <p className="text-sm text-stone-600 leading-relaxed">
-                          {group.excerpt}
-                        </p>
-                      )}
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )
             ) : (

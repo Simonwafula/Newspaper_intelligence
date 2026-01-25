@@ -4,7 +4,7 @@ import {
   Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate,
   ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats,
   Favorite, FavoriteCreate, Collection, CollectionCreate, CollectionUpdate, CollectionItem, CollectionItemCreate,
-  CollectionWithItems, TrendDashboardResponse, StoryGroup
+  CollectionWithItems, TrendDashboardResponse, StoryGroup, User, UserRole
 } from '../types';
 
 // Use empty string for production (relative URLs) or localhost for development
@@ -428,6 +428,31 @@ export const healthApi = {
   // Health check
   checkHealth: async (): Promise<{ status: string }> => {
     const response = await api.get('/api/healthz');
+    return response.data;
+  },
+};
+
+export const usersApi = {
+  // List all users (admin only)
+  getUsers: async (): Promise<User[]> => {
+    const response = await api.get('/api/users/');
+    return response.data;
+  },
+
+  // Create new user (admin only)
+  createUser: async (user: Partial<User> & { password?: string }): Promise<User> => {
+    const response = await api.post('/api/users/admin', user);
+    return response.data;
+  },
+
+  // Delete/Deactivate user (admin only)
+  deleteUser: async (userId: number): Promise<void> => {
+    await api.delete(`/api/users/${userId}`);
+  },
+
+  // Update user role (admin only)
+  updateUserRole: async (userId: number, role: UserRole): Promise<User> => {
+    const response = await api.patch(`/api/users/${userId}/role?role=${role}`);
     return response.data;
   },
 };

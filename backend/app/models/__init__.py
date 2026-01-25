@@ -21,6 +21,7 @@ from app.db.database import Base
 class UserRole(str, PyEnum):
     """User roles for access control."""
     READER = "READER"  # Can read full articles
+    EDITOR = "EDITOR"  # Can edit/categorize stories
     ADMIN = "ADMIN"    # Can upload, process, manage
 
 

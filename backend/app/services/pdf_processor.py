@@ -112,17 +112,24 @@ class PDFProcessor:
                 for block in blocks:
                     if "lines" in block:
                         block_text = ""
+                        max_font_size = 0.0
+                        font_names = set()
                         for line in block["lines"]:
                             line_text = ""
                             for span in line["spans"]:
                                 line_text += span["text"]
+                                max_font_size = max(max_font_size, span.get("size", 0.0))
+                                if "font" in span:
+                                    font_names.add(span["font"])
                             block_text += line_text + "\n"
 
                         if block_text.strip():
                             page_info['text_blocks'].append({
                                 'text': block_text.strip(),
                                 'bbox': block['bbox'],
-                                'type': 'text'
+                                'type': 'text',
+                                'font_size': max_font_size,
+                                'fonts': list(font_names)
                             })
             except Exception as e:
                 logger.warning(f"Error extracting text blocks from page {page_num + 1}: {e}")

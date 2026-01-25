@@ -74,7 +74,11 @@ class LayoutAnalyzer:
                 y_position = bbox[1]  # y0 coordinate
                 is_near_top = y_position < 200  # Arbitrary threshold
 
-                # Heuristic 4: Contains headline-like words
+                # Heuristic 4: Font-based (larger font is more likely a headline)
+                font_size = block.get('font_size', 0)
+                is_large_font = font_size > 14  # Typical body font is ~10-12pt
+
+                # Heuristic 5: Contains headline-like words
                 headline_indicators = [
                     'breaking', 'exclusive', 'update', 'news', 'report',
                     'analysis', 'feature', 'opinion', 'editorial'
@@ -89,6 +93,8 @@ class LayoutAnalyzer:
                     score += 3
                 if is_near_top:
                     score += 1
+                if is_large_font:
+                    score += 4  # Strong indicator
                 if has_indicator:
                     score += 2
 
