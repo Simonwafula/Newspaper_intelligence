@@ -131,6 +131,17 @@ class ItemWithCategoriesResponse(ItemResponse):
     categories: list["ItemCategoryResponse"] = Field(default_factory=list)
 
 
+class StoryGroupResponse(BaseModel):
+    group_id: int
+    edition_id: int
+    title: str | None = None
+    pages: list[int]
+    item_ids: list[int]
+    items_count: int
+    excerpt: str | None = None
+    full_text: str | None = None
+
+
 class SearchResult(BaseModel):
     item_id: int
     title: str | None = None

@@ -17,7 +17,7 @@ export interface Edition {
   current_stage: EditionStage;
   archive_status: ArchiveStatus;
   archived_at?: string;
-  storage_backend: 'local' | 'gdrive';
+  storage_backend: 'local' | 'gdrive' | 'onedrive';
   storage_key?: string;
   cover_image_path?: string;
   last_error?: string;
@@ -34,7 +34,7 @@ export interface Item {
   subtype?: ItemSubtype;
   title?: string;
   text?: string;
-  bbox_json?: Record<string, unknown>;
+  bbox_json?: Record<string, unknown> | unknown[];
   extracted_entities_json?: Record<string, unknown>;
   created_at: string;
   categories?: ItemCategoryResponse[];
@@ -135,6 +135,17 @@ export interface ItemCategoryResponse extends ItemCategory {
 
 export interface ItemWithCategories extends Item {
   categories: ItemCategoryResponse[];
+}
+
+export interface StoryGroup {
+  group_id: number;
+  edition_id: number;
+  title?: string;
+  pages: number[];
+  item_ids: number[];
+  items_count: number;
+  excerpt?: string;
+  full_text?: string | null;
 }
 
 export interface CategoryCreate {

@@ -19,6 +19,7 @@ import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
 import TrendsDashboard from './pages/TrendsDashboard';
 import ErrorPage from './pages/ErrorPage';
+import StoryDetail from './pages/StoryDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,7 @@ function App() {
           <Route path="/app" element={<AuthenticatedLayout />}>
             <Route path="editions" element={<EditionsLibrary />} />
             <Route path="editions/:id" element={<EditionDetail />} />
+            <Route path="stories/:editionId/:groupId" element={<StoryDetail />} />
             <Route path="search" element={<Search />} />
             <Route path="global-search" element={<GlobalSearch />} />
             <Route path="saved-searches" element={<SavedSearches />} />

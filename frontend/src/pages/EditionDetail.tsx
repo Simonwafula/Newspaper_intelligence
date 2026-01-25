@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi, favoritesApi, collectionsApi } from '../services/api';
-import { ItemType, Collection, EditionStatus, Item } from '../types';
+import { ItemType, Collection, EditionStatus, Item, StoryGroup } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
@@ -39,7 +39,13 @@ const EditionDetail = () => {
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ['items', editionId, itemFilter],
     queryFn: () => itemsApi.getEditionItems(editionId, itemFilter),
-    enabled: !!edition,
+    enabled: !!edition && activeTab !== 'stories',
+  });
+
+  const { data: storyGroups, isLoading: storyGroupsLoading } = useQuery({
+    queryKey: ['story-groups', editionId],
+    queryFn: () => itemsApi.getStoryGroups(editionId),
+    enabled: !!edition && activeTab === 'stories',
   });
 
   useEffect(() => {
@@ -361,99 +367,133 @@ const EditionDetail = () => {
         {/* Tab Content */}
         <div className="p-4">
           {edition.status === 'READY' || edition.status === 'PROCESSING' || edition.status === 'ARCHIVED' ? (
-            itemsLoading ? (
-              <Loading message="Loading items..." />
-            ) : !items || items.length === 0 ? (
-              <div className="text-center py-8 text-stone-500">
-                No {activeTab} found in this edition.
-              </div>
+            activeTab === 'stories' ? (
+              storyGroupsLoading ? (
+                <Loading message="Loading stories..." />
+              ) : !storyGroups || storyGroups.length === 0 ? (
+                <div className="text-center py-8 text-stone-500">
+                  No stories found in this edition.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {storyGroups.map((group: StoryGroup) => (
+                    <Link
+                      key={group.group_id}
+                      to={`/app/stories/${editionId}/${group.group_id}`}
+                      className="block p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h4 className="font-semibold text-ink-800">
+                          {group.title || 'Untitled Story'}
+                        </h4>
+                        <span className="text-xs text-stone-500">
+                          {group.pages.length > 0 ? `Pages ${group.pages.join(', ')}` : 'Pages unknown'}
+                        </span>
+                      </div>
+                      {group.excerpt && (
+                        <p className="text-sm text-stone-600 leading-relaxed">
+                          {group.excerpt}
+                        </p>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="space-y-4">
-                {items.map((item: Item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                      <h4 className="font-semibold text-ink-800">
-                        {item.title || 'Untitled'}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <ItemTypeBadge type={item.item_type} />
-                        {item.subtype && (
-                          <span className="text-xs text-stone-500">{item.subtype}</span>
-                        )}
+              itemsLoading ? (
+                <Loading message="Loading items..." />
+              ) : !items || items.length === 0 ? (
+                <div className="text-center py-8 text-stone-500">
+                  No {activeTab} found in this edition.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {items.map((item: Item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 border border-stone-200 rounded-lg hover:border-stone-300 transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <h4 className="font-semibold text-ink-800">
+                          {item.title || 'Untitled'}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <ItemTypeBadge type={item.item_type} />
+                          {item.subtype && (
+                            <span className="text-xs text-stone-500">{item.subtype}</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
+                      <div className="text-sm text-stone-500 mb-2">Page {item.page_number}</div>
 
-                    {item.categories && item.categories.length > 0 && (
-                      <div className="mb-2">
-                        <CategoryList
-                          categories={item.categories}
-                          showConfidence={true}
-                          maxDisplay={5}
-                          size="sm"
-                        />
-                      </div>
-                    )}
+                      {item.categories && item.categories.length > 0 && (
+                        <div className="mb-2">
+                          <CategoryList
+                            categories={item.categories}
+                            showConfidence={true}
+                            maxDisplay={5}
+                            size="sm"
+                          />
+                        </div>
+                      )}
 
-                    {item.text && (
-                      <p className="text-sm text-stone-600 leading-relaxed">
-                        {item.text.substring(0, 300)}
-                        {item.text.length > 300 && '...'}
-                      </p>
-                    )}
+                      {item.text && (
+                        <p className="text-sm text-stone-600 leading-relaxed">
+                          {item.text.substring(0, 300)}
+                          {item.text.length > 300 && '...'}
+                        </p>
+                      )}
 
-                    <div className="mt-4 flex items-center justify-end space-x-3">
-                      <button
-                        onClick={() => toggleFavorite(item.id)}
-                        className={`p-1.5 rounded-full transition-colors ${userFavorites.includes(item.id)
-                          ? 'text-red-500 hover:bg-red-50'
-                          : 'text-gray-400 hover:bg-gray-100'
-                          }`}
-                        title={userFavorites.includes(item.id) ? "Remove from Favorites" : "Add to Favorites"}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={userFavorites.includes(item.id) ? "currentColor" : "none"} stroke="currentColor">
-                          <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-
-                      <div className="relative">
+                      <div className="mt-4 flex items-center justify-end space-x-3">
                         <button
-                          onClick={() => setShowCollectionMenu(showCollectionMenu === item.id ? null : item.id)}
-                          className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"
-                          title="Add to Collection"
+                          onClick={() => toggleFavorite(item.id)}
+                          className={`p-1.5 rounded-full transition-colors ${userFavorites.includes(item.id)
+                            ? 'text-red-500 hover:bg-red-50'
+                            : 'text-gray-400 hover:bg-gray-100'
+                            }`}
+                          title={userFavorites.includes(item.id) ? "Remove from Favorites" : "Add to Favorites"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={userFavorites.includes(item.id) ? "currentColor" : "none"} stroke="currentColor">
+                            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                           </svg>
                         </button>
 
-                        {showCollectionMenu === item.id && (
-                          <div className="absolute right-0 bottom-full mb-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-10 py-1 overflow-hidden">
-                            <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase bg-gray-50 border-b border-gray-100">Add to Collection</div>
-                            {collections.length === 0 ? (
-                              <Link to="/app/collections" className="block px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">Create first collection</Link>
-                            ) : (
-                              collections.map(col => (
-                                <button
-                                  key={col.id}
-                                  onClick={() => addItemToCollection(col.id, item.id)}
-                                  className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors truncate"
-                                  style={{ borderLeft: `3px solid ${col.color}` }}
-                                >
-                                  {col.name}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowCollectionMenu(showCollectionMenu === item.id ? null : item.id)}
+                            className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Add to Collection"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+
+                          {showCollectionMenu === item.id && (
+                            <div className="absolute right-0 bottom-full mb-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-10 py-1 overflow-hidden">
+                              <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase bg-gray-50 border-b border-gray-100">Add to Collection</div>
+                              {collections.length === 0 ? (
+                                <Link to="/app/collections" className="block px-3 py-2 text-sm text-blue-600 hover:bg-blue-50">Create first collection</Link>
+                              ) : (
+                                collections.map(col => (
+                                  <button
+                                    key={col.id}
+                                    onClick={() => addItemToCollection(col.id, item.id)}
+                                    className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors truncate"
+                                    style={{ borderLeft: `3px solid ${col.color}` }}
+                                  >
+                                    {col.name}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )
             )
           ) : (
             <div className="text-center py-12">

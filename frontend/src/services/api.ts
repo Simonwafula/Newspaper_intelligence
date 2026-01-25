@@ -4,7 +4,7 @@ import {
   Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate,
   ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats,
   Favorite, FavoriteCreate, Collection, CollectionCreate, CollectionUpdate, CollectionItem, CollectionItemCreate,
-  CollectionWithItems, TrendDashboardResponse
+  CollectionWithItems, TrendDashboardResponse, StoryGroup
 } from '../types';
 
 // Use empty string for production (relative URLs) or localhost for development
@@ -150,6 +150,18 @@ export const itemsApi = {
   // Get single item
   getItem: async (id: number): Promise<Item> => {
     const response = await api.get(`/api/items/item/${id}`);
+    return response.data;
+  },
+
+  getStoryGroups: async (editionId: number, skip = 0, limit = 100): Promise<StoryGroup[]> => {
+    const response = await api.get(
+      `/api/items/edition/${editionId}/story-groups?skip=${skip}&limit=${limit}`
+    );
+    return response.data;
+  },
+
+  getStoryGroup: async (editionId: number, groupId: number): Promise<StoryGroup> => {
+    const response = await api.get(`/api/items/edition/${editionId}/story-groups/${groupId}`);
     return response.data;
   },
 };

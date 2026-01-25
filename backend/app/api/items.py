@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_reader_user
 from app.db.database import get_db
 from app.models import Category, Edition, Item, ItemCategory
-from app.schemas import ItemSubtype, ItemType, ItemWithCategoriesResponse
+from app.schemas import ItemSubtype, ItemType, ItemWithCategoriesResponse, StoryGroupResponse
+from app.services.story_grouping import build_story_groups
 
 router = APIRouter()
 
@@ -74,6 +75,71 @@ async def get_edition_items(
         })
 
     return result
+
+
+@router.get("/edition/{edition_id}/story-groups", response_model=list[StoryGroupResponse])
+async def get_story_groups(
+    edition_id: int,
+    skip: int = Query(0, ge=0, description="Number of groups to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of groups to return"),
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user)
+):
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        raise HTTPException(status_code=404, detail="Edition not found")
+
+    items = (
+        db.query(Item)
+        .filter(Item.edition_id == edition_id, Item.item_type == ItemType.STORY)
+        .order_by(Item.page_number, Item.id)
+        .all()
+    )
+    groups = build_story_groups(items)
+    sliced = groups[skip: skip + limit]
+    return [
+        StoryGroupResponse(
+            group_id=group.group_id,
+            edition_id=group.edition_id,
+            title=group.title,
+            pages=group.pages,
+            item_ids=group.item_ids,
+            items_count=len(group.item_ids),
+            excerpt=group.excerpt,
+            full_text=None,
+        )
+        for group in sliced
+    ]
+
+
+@router.get("/edition/{edition_id}/story-groups/{group_id}", response_model=StoryGroupResponse)
+async def get_story_group(
+    edition_id: int,
+    group_id: int,
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user)
+):
+    items = (
+        db.query(Item)
+        .filter(Item.edition_id == edition_id, Item.item_type == ItemType.STORY)
+        .order_by(Item.page_number, Item.id)
+        .all()
+    )
+    groups = build_story_groups(items)
+    for group in groups:
+        if group.group_id == group_id:
+            return StoryGroupResponse(
+                group_id=group.group_id,
+                edition_id=group.edition_id,
+                title=group.title,
+                pages=group.pages,
+                item_ids=group.item_ids,
+                items_count=len(group.item_ids),
+                excerpt=group.excerpt,
+                full_text=group.full_text,
+            )
+
+    raise HTTPException(status_code=404, detail="Story group not found")
 
 
 @router.get("/item/{item_id}", response_model=ItemWithCategoriesResponse)
