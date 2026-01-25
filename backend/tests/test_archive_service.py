@@ -7,16 +7,16 @@ from app.settings import settings
 
 
 class _FakeDriveClient:
-    def __init__(self, file_id: str = "drive_file_id"):
-        self.file_id = file_id
+    def __init__(self, item_id: str = "onedrive_item_id"):
+        self.item_id = item_id
 
     def upload_file(self, local_path: str, filename: str | None = None):
-        return _UploadResult(file_id=self.file_id, size=123)
+        return _UploadResult(item_id=self.item_id, size=123)
 
 
 class _UploadResult:
-    def __init__(self, file_id: str, size: int):
-        self.file_id = file_id
+    def __init__(self, item_id: str, size: int):
+        self.item_id = item_id
         self.size = size
 
 
@@ -25,8 +25,8 @@ def _create_pdf(path: Path) -> None:
 
 
 def test_archive_due_editions(db, monkeypatch, tmp_path):
-    monkeypatch.setattr(settings, "gdrive_enabled", True)
-    monkeypatch.setattr(archive_service, "_get_drive_client", lambda: _FakeDriveClient())
+    monkeypatch.setattr(settings, "onedrive_enabled", True)
+    monkeypatch.setattr(archive_service, "_get_onedrive_client", lambda: _FakeDriveClient())
 
     old_pdf = tmp_path / "old.pdf"
     new_pdf = tmp_path / "new.pdf"
@@ -74,8 +74,8 @@ def test_archive_due_editions(db, monkeypatch, tmp_path):
     db.refresh(new_edition)
 
     assert old_edition.archive_status == "ARCHIVED"
-    assert old_edition.storage_backend == "gdrive"
-    assert old_edition.storage_key == "drive_file_id"
+    assert old_edition.storage_backend == "onedrive"
+    assert old_edition.storage_key == "onedrive_item_id"
     assert old_edition.pdf_local_path is None
     assert not Path(old_pdf).exists()
 
@@ -84,8 +84,8 @@ def test_archive_due_editions(db, monkeypatch, tmp_path):
 
 
 def test_archive_skips_processing_editions(db, monkeypatch, tmp_path):
-    monkeypatch.setattr(settings, "gdrive_enabled", True)
-    monkeypatch.setattr(archive_service, "_get_drive_client", lambda: _FakeDriveClient())
+    monkeypatch.setattr(settings, "onedrive_enabled", True)
+    monkeypatch.setattr(archive_service, "_get_onedrive_client", lambda: _FakeDriveClient())
 
     processing_pdf = tmp_path / "processing.pdf"
     _create_pdf(processing_pdf)

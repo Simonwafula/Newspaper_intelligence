@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     gdrive_folder_id: str | None = None
     gdrive_service_account_file: str | None = None
 
+    # OneDrive archiving (personal accounts use refresh tokens)
+    onedrive_enabled: bool = False
+    onedrive_client_id: str | None = None
+    onedrive_refresh_token: str | None = None
+    onedrive_folder_path: str | None = None
+    onedrive_token_file: str | None = None
+
     # Logs
     processing_log_dir: str = "./storage/logs"
 

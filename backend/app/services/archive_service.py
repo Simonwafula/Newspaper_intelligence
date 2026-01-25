@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Edition
 from app.services.gdrive_client import DriveClient
+from app.services.onedrive_client import OneDriveClient
 from app.settings import settings
 
 
@@ -20,8 +21,29 @@ def _get_drive_client() -> DriveClient:
     )
 
 
+def _get_onedrive_client() -> OneDriveClient:
+    if not settings.onedrive_enabled:
+        raise RuntimeError("OneDrive archiving disabled")
+
+    return OneDriveClient(
+        client_id=settings.onedrive_client_id,
+        refresh_token=settings.onedrive_refresh_token,
+        folder_path=settings.onedrive_folder_path,
+        token_file=settings.onedrive_token_file,
+    )
+
+
+def _get_archive_backend() -> str:
+    if settings.onedrive_enabled:
+        return "onedrive"
+    if settings.gdrive_enabled:
+        return "gdrive"
+    raise RuntimeError("Archiving disabled")
+
+
 def archive_edition_now(edition: Edition, db: Session) -> bool:
-    if edition.storage_backend == "gdrive":
+    backend = _get_archive_backend()
+    if edition.storage_backend == backend:
         return True
 
     pdf_path = edition.pdf_local_path or edition.file_path
@@ -35,13 +57,22 @@ def archive_edition_now(edition: Edition, db: Session) -> bool:
         edition.archive_status = "ARCHIVING"  # type: ignore
         db.commit()
 
-        client = _get_drive_client()
-        upload_result = client.upload_file(pdf_path)
-        if upload_result.size is not None and upload_result.size <= 0:
-            raise RuntimeError("Drive upload returned empty file")
+        if backend == "onedrive":
+            client = _get_onedrive_client()
+            upload_result = client.upload_file(pdf_path)
+            if upload_result.size is not None and upload_result.size <= 0:
+                raise RuntimeError("OneDrive upload returned empty file")
 
-        edition.storage_backend = "gdrive"  # type: ignore
-        edition.storage_key = upload_result.file_id  # type: ignore
+            edition.storage_backend = "onedrive"  # type: ignore
+            edition.storage_key = upload_result.item_id  # type: ignore
+        else:
+            client = _get_drive_client()
+            upload_result = client.upload_file(pdf_path)
+            if upload_result.size is not None and upload_result.size <= 0:
+                raise RuntimeError("Drive upload returned empty file")
+
+            edition.storage_backend = "gdrive"  # type: ignore
+            edition.storage_key = upload_result.file_id  # type: ignore
         edition.pdf_local_path = None  # type: ignore
         edition.archived_at = datetime.now(UTC)  # type: ignore
         edition.archive_status = "ARCHIVED"  # type: ignore
@@ -59,7 +90,7 @@ def archive_edition_now(edition: Edition, db: Session) -> bool:
 
 
 def archive_due_editions(db: Session) -> int:
-    if not settings.gdrive_enabled:
+    if not settings.onedrive_enabled and not settings.gdrive_enabled:
         return 0
 
     cutoff = datetime.now(UTC) - timedelta(days=settings.archive_after_days)
