@@ -80,6 +80,7 @@ class ProcessingService:
                 total_pages = len(doc)
 
             edition.total_pages = total_pages  # type: ignore
+            edition.num_pages = total_pages  # type: ignore
             edition.processed_pages = 0  # type: ignore
             db.commit()
 

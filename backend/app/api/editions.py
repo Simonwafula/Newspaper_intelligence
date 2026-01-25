@@ -291,6 +291,7 @@ async def create_edition(
         pdf_local_path=None,
         storage_backend="local",
         storage_key=None,
+        num_pages=total_pages,
         total_pages=total_pages,
         processed_pages=0,
         status=EditionStatus.UPLOADED,
