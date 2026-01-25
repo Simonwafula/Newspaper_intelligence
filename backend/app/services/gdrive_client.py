@@ -33,7 +33,12 @@ class DriveClient:
         media = MediaFileUpload(local_path, mimetype="application/pdf", resumable=True)
         response = (
             self.service.files()
-            .create(body=metadata, media_body=media, fields="id,size")
+            .create(
+                body=metadata,
+                media_body=media,
+                fields="id,size",
+                supportsAllDrives=True,
+            )
             .execute()
         )
         return DriveUploadResult(file_id=response["id"], size=int(response.get("size", 0)))
