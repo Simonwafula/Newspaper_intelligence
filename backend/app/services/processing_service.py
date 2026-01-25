@@ -81,6 +81,7 @@ class ProcessingService:
 
             edition.total_pages = total_pages  # type: ignore
             edition.num_pages = total_pages  # type: ignore
+            edition.pages_processed = 0  # type: ignore
             edition.processed_pages = 0  # type: ignore
             db.commit()
 
@@ -198,6 +199,7 @@ class ProcessingService:
 
                 processed_pages += 1
                 edition.processed_pages = processed_pages  # type: ignore
+                edition.pages_processed = processed_pages  # type: ignore
 
                 stats["processed_pages"] = processed_pages
                 stats["pages_with_ocr"] = pages_with_ocr

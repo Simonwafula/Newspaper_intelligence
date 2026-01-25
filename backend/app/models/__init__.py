@@ -74,6 +74,7 @@ class Edition(Base):
     storage_key = Column(String(500), nullable=True)
     num_pages = Column(Integer, nullable=False, default=0)
     total_pages = Column(Integer, nullable=False, default=0)
+    pages_processed = Column(Integer, nullable=False, default=0)
     processed_pages = Column(Integer, nullable=False, default=0)  # Progress tracking
     current_stage = Column(String(20), nullable=False, default="QUEUED", index=True)
 

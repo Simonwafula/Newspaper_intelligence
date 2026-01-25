@@ -293,6 +293,7 @@ async def create_edition(
         storage_key=None,
         num_pages=total_pages,
         total_pages=total_pages,
+        pages_processed=0,
         processed_pages=0,
         status=EditionStatus.UPLOADED,
         current_stage="QUEUED",
