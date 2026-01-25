@@ -100,22 +100,26 @@ class OneDriveClient:
         return f"{GRAPH_BASE_URL}/me/drive/items/{parent_id}/children"
 
     def _find_child_folder(self, parent_id: str, name: str, headers: dict[str, str]) -> str | None:
-        safe_name = name.replace("'", "''")
         params = {
             "$select": "id,name,folder",
-            "$filter": f"name eq '{safe_name}' and folder ne null",
+            "$top": "200",
         }
+        url = self._children_url(parent_id)
         with httpx.Client(timeout=30) as client:
-            response = client.get(self._children_url(parent_id), headers=headers, params=params)
+            while url:
+                response = client.get(url, headers=headers, params=params)
+                if response.status_code >= 400:
+                    raise RuntimeError(f"OneDrive folder lookup failed: {response.text}")
 
-        if response.status_code >= 400:
-            raise RuntimeError(f"OneDrive folder lookup failed: {response.text}")
+                payload = response.json()
+                for item in payload.get("value", []):
+                    if item.get("name") == name and item.get("folder") is not None:
+                        return item.get("id")
 
-        items = response.json().get("value", [])
-        if not items:
-            return None
+                url = payload.get("@odata.nextLink")
+                params = None
 
-        return items[0].get("id")
+        return None
 
     def _create_child_folder(self, parent_id: str, name: str, headers: dict[str, str]) -> str:
         payload = {
