@@ -1,12 +1,11 @@
 import logging
 
+from app.settings import settings
+
 try:
     import io
-
     import pytesseract
-from PIL import Image
-
-from app.settings import settings
+    from PIL import Image
     TESSERACT_AVAILABLE = True
 except ImportError:
     TESSERACT_AVAILABLE = False
