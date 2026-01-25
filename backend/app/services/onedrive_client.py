@@ -100,9 +100,10 @@ class OneDriveClient:
         return f"{GRAPH_BASE_URL}/me/drive/items/{parent_id}/children"
 
     def _find_child_folder(self, parent_id: str, name: str, headers: dict[str, str]) -> str | None:
+        safe_name = name.replace("'", "''")
         params = {
             "$select": "id,name,folder",
-            "$filter": f"name eq '{name.replace(\"'\", \"''\")}' and folder ne null",
+            "$filter": f"name eq '{safe_name}' and folder ne null",
         }
         with httpx.Client(timeout=30) as client:
             response = client.get(self._children_url(parent_id), headers=headers, params=params)
