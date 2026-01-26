@@ -4,7 +4,7 @@ import {
   Category, CategoryWithStats, CategoryCreate, CategoryUpdate, ItemWithCategories, ItemCategoryCreate,
   ItemCategoryResponse, BatchClassificationRequest, BatchClassificationResponse, ClassificationStats,
   Favorite, FavoriteCreate, Collection, CollectionCreate, CollectionUpdate, CollectionItem, CollectionItemCreate,
-  CollectionWithItems, TrendDashboardResponse, StoryGroup, User, UserRole
+  CollectionWithItems, TrendDashboardResponse, StoryGroup, User, UserRole, PageMetrics, Page
 } from '../types';
 
 // Use empty string for production (relative URLs) or localhost for development
@@ -62,6 +62,24 @@ export const editionsApi = {
   // Get edition by ID
   getEdition: async (id: number): Promise<Edition> => {
     const response = await api.get(`/api/editions/${id}`);
+    return response.data;
+  },
+
+  // Get per-page OCR metrics for an edition
+  getEditionPageMetrics: async (id: number): Promise<PageMetrics[]> => {
+    const response = await api.get(`/api/editions/${id}/pages/metrics`);
+    return response.data;
+  },
+
+  // Get a single page details
+  getEditionPage: async (editionId: number, pageNumber: number): Promise<Page> => {
+    const response = await api.get(`/api/editions/${editionId}/pages/${pageNumber}`);
+    return response.data;
+  },
+
+  // Reprocess OCR for a single page
+  reprocessEditionPage: async (editionId: number, pageNumber: number): Promise<Page> => {
+    const response = await api.post(`/api/editions/${editionId}/pages/${pageNumber}/reocr`, {});
     return response.data;
   },
 

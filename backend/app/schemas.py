@@ -105,6 +105,19 @@ class PageResponse(BaseModel):
     created_at: datetime
 
 
+class PageMetricsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    page_number: int
+    status: PageStatus
+    char_count: int
+    ocr_used: bool
+    ocr_confidence: float | None = None
+    ocr_word_count: int | None = None
+    ocr_engine: str | None = None
+    error_message: str | None = None
+
+
 class ItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -141,6 +141,23 @@ MAX_PDF_SIZE=50MB
 MIN_CHARS_FOR_NATIVE_TEXT=200
 OCR_ENABLED=true
 OCR_LANGUAGES=eng
+OCR_PREPROCESS=true
+OCR_PREPROCESS_UNSHARP=true
+OCR_PREPROCESS_ADAPTIVE=true
+OCR_PREPROCESS_GLOBAL_THRESHOLD=170
+OCR_CONFIDENCE_THRESHOLD=55
+OCR_RETRY_ENABLED=true
+OCR_RETRY_DPI=350
+OCR_PSM=3
+OCR_RETRY_PSM=4
+OCR_FALLBACK_ENABLED=false
+OCR_FALLBACK_LANG=en
+
+Optional: install OpenCV for adaptive thresholding in OCR preprocessing:
+
+```bash
+pip install opencv-python
+```
 DEBUG=false
 
 # Authentication (required for production)
@@ -237,6 +254,35 @@ ADMIN_TOKEN=your-secure-admin-token
 # OCR (optional)
 OCR_ENABLED=true
 OCR_LANGUAGES=eng
+OCR_PREPROCESS=true
+OCR_CONFIDENCE_THRESHOLD=55
+OCR_RETRY_ENABLED=true
+OCR_RETRY_DPI=350
+OCR_PSM=3
+OCR_RETRY_PSM=4
+OCR_FALLBACK_ENABLED=false
+OCR_FALLBACK_LANG=en
+
+## OCR Accuracy Report (manual compare)
+Generate a quick report comparing OCR output to a manual transcription for a page:
+
+```bash
+python3 scripts/ocr_accuracy_report.py \
+  --db dev.db \
+  --edition-id 1 \
+  --page-number 1 \
+  --manual-text /path/to/manual.txt
+```
+
+Batch mode (manual text files in a folder, page number inferred from filename):
+
+```bash
+python3 scripts/ocr_accuracy_report.py \
+  --db dev.db \
+  --edition-id 1 \
+  --manual-dir /path/to/manual_texts \
+  --csv /path/to/report.csv
+```
 ```
 
 #### Manual Deployment Steps

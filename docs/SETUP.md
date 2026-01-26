@@ -107,6 +107,23 @@ SECRET_KEY=your-secret-key-here
 # OCR Settings
 OCR_ENABLED=true
 OCR_LANGUAGES=eng
+OCR_PREPROCESS=true
+OCR_PREPROCESS_UNSHARP=true
+OCR_PREPROCESS_ADAPTIVE=true
+OCR_PREPROCESS_GLOBAL_THRESHOLD=170
+OCR_CONFIDENCE_THRESHOLD=55
+OCR_RETRY_ENABLED=true
+OCR_RETRY_DPI=350
+OCR_PSM=3
+OCR_RETRY_PSM=4
+OCR_FALLBACK_ENABLED=false
+OCR_FALLBACK_LANG=en
+
+# Optional: PaddleOCR fallback
+# pip install paddleocr
+
+# Optional: OpenCV for adaptive thresholding
+# pip install opencv-python
 
 # CORS (add your frontend URL in production)
 ALLOWED_ORIGINS=["http://localhost:5173","http://localhost:3000"]

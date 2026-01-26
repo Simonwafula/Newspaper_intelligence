@@ -91,6 +91,9 @@ class ProcessingService:
                 "processed_pages": 0,
                 "pages_with_ocr": 0,
                 "total_items": 0,
+                "ocr_avg_confidence": None,
+                "ocr_low_conf_pages": 0,
+                "pages_with_fallback_ocr": 0,
             }
             extraction_run.stats_json = dict(stats)
             db.commit()
@@ -99,6 +102,10 @@ class ProcessingService:
             pages_with_ocr = 0
             processed_pages = 0
             any_failed = False
+            ocr_conf_sum = 0.0
+            ocr_conf_pages = 0
+            ocr_low_conf_pages = 0
+            pages_with_fallback_ocr = 0
 
             for page_index in range(total_pages):
                 db.refresh(edition)
@@ -136,15 +143,62 @@ class ProcessingService:
                         image_bytes = self.pdf_processor.get_page_image(
                             pdf_path, page_index, dpi=settings.ocr_image_dpi
                         )
+                        def _score(result: dict) -> tuple[float, int]:
+                            conf = result.get("avg_confidence")
+                            conf_score = conf if conf is not None else -1.0
+                            return (conf_score, result.get("word_count", 0))
+
+                        ocr_result = self.ocr_service.extract_text_with_boxes(
+                            image_bytes,
+                            preprocess=settings.ocr_preprocess,
+                            psm=settings.ocr_psm,
+                        )
+
+                        if settings.ocr_retry_enabled:
+                            avg_conf = ocr_result.get("avg_confidence")
+                            if avg_conf is None or avg_conf < settings.ocr_confidence_threshold:
+                                retry_bytes = self.pdf_processor.get_page_image(
+                                    pdf_path, page_index, dpi=settings.ocr_retry_dpi
+                                )
+                                retry_result = self.ocr_service.extract_text_with_boxes(
+                                    retry_bytes,
+                                    preprocess=settings.ocr_preprocess,
+                                    psm=settings.ocr_retry_psm,
+                                )
+
+                                if _score(retry_result) > _score(ocr_result):
+                                    image_bytes = retry_bytes
+                                    ocr_result = retry_result
+
+                        if settings.ocr_fallback_enabled:
+                            avg_conf = ocr_result.get("avg_confidence")
+                            if avg_conf is None or avg_conf < settings.ocr_confidence_threshold:
+                                try:
+                                    fallback_result = self.ocr_service.extract_text_with_boxes_fallback(
+                                        image_bytes,
+                                        preprocess=settings.ocr_preprocess,
+                                    )
+                                    if _score(fallback_result) > _score(ocr_result):
+                                        ocr_result = fallback_result
+                                        pages_with_fallback_ocr += 1
+                                except Exception as e:
+                                    logger.warning(f"Fallback OCR failed for page {page_number}: {e}")
+
                         pages_dir = os.path.join(settings.storage_path, "pages")
                         os.makedirs(pages_dir, exist_ok=True)
                         image_path = os.path.join(pages_dir, f"{edition_id}_{page_number}.png")
                         with open(image_path, "wb") as f:
                             f.write(image_bytes)
 
-                        ocr_result = self.ocr_service.extract_text_with_boxes(image_bytes)
                         page_data["extracted_text"] = ocr_result["text"]
                         page_data["text_blocks"].extend(ocr_result["text_blocks"])
+                        page_data["ocr_meta"] = {
+                            "avg_confidence": ocr_result.get("avg_confidence"),
+                            "word_count": ocr_result.get("word_count"),
+                            "psm": ocr_result.get("psm"),
+                            "preprocess": ocr_result.get("preprocess"),
+                            "engine": ocr_result.get("engine"),
+                        }
                         used_ocr = True
 
                     edition.current_stage = "LAYOUT"  # type: ignore
@@ -160,7 +214,10 @@ class ProcessingService:
                     db.commit()
 
                     page.extracted_text = page_data.get("extracted_text")
-                    page.bbox_json = {"text_blocks": page_data.get("text_blocks", [])}
+                    page.bbox_json = {
+                        "text_blocks": page_data.get("text_blocks", []),
+                        "ocr_meta": page_data.get("ocr_meta"),
+                    }
                     page.char_count = len(page_data.get("extracted_text") or "")
                     page.ocr_used = used_ocr
                     if image_path:
@@ -189,6 +246,12 @@ class ProcessingService:
 
                     if used_ocr:
                         pages_with_ocr += 1
+                        avg_conf = (page_data.get("ocr_meta") or {}).get("avg_confidence")
+                        if isinstance(avg_conf, (int, float)):
+                            ocr_conf_sum += float(avg_conf)
+                            ocr_conf_pages += 1
+                            if avg_conf < settings.ocr_confidence_threshold:
+                                ocr_low_conf_pages += 1
 
                     page.status = "DONE"
                     page.error_message = None
@@ -205,6 +268,10 @@ class ProcessingService:
                 stats["processed_pages"] = processed_pages
                 stats["pages_with_ocr"] = pages_with_ocr
                 stats["total_items"] = total_items
+                stats["ocr_low_conf_pages"] = ocr_low_conf_pages
+                stats["pages_with_fallback_ocr"] = pages_with_fallback_ocr
+                if ocr_conf_pages:
+                    stats["ocr_avg_confidence"] = round(ocr_conf_sum / ocr_conf_pages, 2)
                 extraction_run.stats_json = dict(stats)
 
                 db.commit()
@@ -280,3 +347,168 @@ class ProcessingService:
 
 def create_processing_service() -> ProcessingService:
     return ProcessingService()
+
+
+def reprocess_single_page(edition_id: int, page_number: int, db: Session) -> bool:
+    """
+    Reprocess a single page for an edition (OCR + layout + items).
+    """
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        logger.error("Edition %s not found for page reprocess", edition_id)
+        return False
+
+    pdf_path = edition.pdf_local_path or edition.file_path
+    if not pdf_path or not os.path.exists(pdf_path):
+        logger.error("Local PDF missing for edition %s", edition_id)
+        return False
+
+    if page_number < 1:
+        logger.error("Invalid page number %s", page_number)
+        return False
+
+    processing_service = ProcessingService()
+
+    try:
+        doc = fitz.open(pdf_path)
+        if page_number > len(doc):
+            logger.error("Page number %s out of range", page_number)
+            doc.close()
+            return False
+
+        page_index = page_number - 1
+
+        page = (
+            db.query(Page)
+            .filter(Page.edition_id == edition_id, Page.page_number == page_number)
+            .first()
+        )
+        if not page:
+            page = Page(edition_id=edition_id, page_number=page_number)
+            db.add(page)
+            db.flush()
+
+        page.status = "PROCESSING"
+        db.commit()
+
+        page_data = processing_service.pdf_processor.get_page_data(doc, page_index)
+        used_ocr = False
+        image_path = None
+
+        if page_data.get("needs_ocr") and processing_service.ocr_service and processing_service.ocr_service.is_available():
+            image_bytes = processing_service.pdf_processor.get_page_image(
+                pdf_path, page_index, dpi=settings.ocr_image_dpi
+            )
+
+            def _score(result: dict) -> tuple[float, int]:
+                conf = result.get("avg_confidence")
+                conf_score = conf if conf is not None else -1.0
+                return (conf_score, result.get("word_count", 0))
+
+            ocr_result = processing_service.ocr_service.extract_text_with_boxes(
+                image_bytes,
+                preprocess=settings.ocr_preprocess,
+                psm=settings.ocr_psm,
+            )
+
+            if settings.ocr_retry_enabled:
+                avg_conf = ocr_result.get("avg_confidence")
+                if avg_conf is None or avg_conf < settings.ocr_confidence_threshold:
+                    retry_bytes = processing_service.pdf_processor.get_page_image(
+                        pdf_path, page_index, dpi=settings.ocr_retry_dpi
+                    )
+                    retry_result = processing_service.ocr_service.extract_text_with_boxes(
+                        retry_bytes,
+                        preprocess=settings.ocr_preprocess,
+                        psm=settings.ocr_retry_psm,
+                    )
+                    if _score(retry_result) > _score(ocr_result):
+                        image_bytes = retry_bytes
+                        ocr_result = retry_result
+
+            if settings.ocr_fallback_enabled:
+                avg_conf = ocr_result.get("avg_confidence")
+                if avg_conf is None or avg_conf < settings.ocr_confidence_threshold:
+                    try:
+                        fallback_result = processing_service.ocr_service.extract_text_with_boxes_fallback(
+                            image_bytes,
+                            preprocess=settings.ocr_preprocess,
+                        )
+                        if _score(fallback_result) > _score(ocr_result):
+                            ocr_result = fallback_result
+                    except Exception as e:
+                        logger.warning("Fallback OCR failed for page %s: %s", page_number, e)
+
+            pages_dir = os.path.join(settings.storage_path, "pages")
+            os.makedirs(pages_dir, exist_ok=True)
+            image_path = os.path.join(pages_dir, f"{edition_id}_{page_number}.png")
+            with open(image_path, "wb") as f:
+                f.write(image_bytes)
+
+            page_data["extracted_text"] = ocr_result["text"]
+            page_data["text_blocks"].extend(ocr_result["text_blocks"])
+            page_data["ocr_meta"] = {
+                "avg_confidence": ocr_result.get("avg_confidence"),
+                "word_count": ocr_result.get("word_count"),
+                "psm": ocr_result.get("psm"),
+                "preprocess": ocr_result.get("preprocess"),
+                "engine": ocr_result.get("engine"),
+            }
+            used_ocr = True
+
+        try:
+            page_data = processing_service.layout_analyzer.analyze_page(page_data)
+        except Exception as e:
+            logger.error("Layout analysis failed for page %s: %s", page_number, e)
+            page_data["extracted_items"] = []
+
+        db.query(Item).filter(Item.edition_id == edition_id, Item.page_number == page_number).delete()
+        db.commit()
+
+        page.extracted_text = page_data.get("extracted_text")
+        page.bbox_json = {
+            "text_blocks": page_data.get("text_blocks", []),
+            "ocr_meta": page_data.get("ocr_meta"),
+        }
+        page.char_count = len(page_data.get("extracted_text") or "")
+        page.ocr_used = used_ocr
+        if image_path:
+            page.image_path = image_path
+
+        extracted_items = page_data.get("extracted_items", [])
+        for item_data in extracted_items:
+            item = Item(
+                edition_id=edition_id,
+                page_id=page.id,
+                page_number=page_number,
+                item_type=item_data["item_type"],
+                subtype=item_data.get("subtype"),
+                title=item_data.get("title"),
+                text=item_data.get("text"),
+                bbox_json=item_data.get("bbox_json"),
+                structured_data=item_data.get("structured_data"),
+                contact_info_json=item_data.get("contact_info_json"),
+                price_info_json=item_data.get("price_info_json"),
+                date_info_json=item_data.get("date_info_json"),
+                location_info_json=item_data.get("location_info_json"),
+                classification_details_json=item_data.get("classification_details_json"),
+            )
+            db.add(item)
+
+        page.status = "DONE"
+        page.error_message = None
+        db.commit()
+        doc.close()
+        return True
+    except Exception as e:
+        logger.error("Page reprocess failed for edition %s page %s: %s", edition_id, page_number, e)
+        page = (
+            db.query(Page)
+            .filter(Page.edition_id == edition_id, Page.page_number == page_number)
+            .first()
+        )
+        if page:
+            page.status = "FAILED"
+            page.error_message = str(e)[:500]
+            db.commit()
+        return False

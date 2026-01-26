@@ -28,6 +28,17 @@ class Settings(BaseSettings):
     ocr_image_dpi: int = 250
     ocr_enabled: bool = True
     ocr_languages: str = "eng"
+    ocr_preprocess: bool = True
+    ocr_preprocess_unsharp: bool = True
+    ocr_preprocess_adaptive: bool = True
+    ocr_preprocess_global_threshold: int = 170
+    ocr_confidence_threshold: int = 55
+    ocr_retry_enabled: bool = True
+    ocr_retry_dpi: int = 350
+    ocr_psm: int = 3
+    ocr_retry_psm: int = 4
+    ocr_fallback_enabled: bool = False
+    ocr_fallback_lang: str = "en"
     tesseract_cmd: str | None = None
 
     # Story grouping

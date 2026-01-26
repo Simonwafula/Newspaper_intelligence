@@ -161,6 +161,8 @@ class Item(Base):
     page = relationship("Page", back_populates="items")
     categories = relationship("ItemCategory", back_populates="item", cascade="all, delete-orphan")
     story_group_items = relationship("StoryGroupItem", back_populates="item", cascade="all, delete-orphan")
+    favorited_by = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
+    collection_items = relationship("CollectionItem", back_populates="item", cascade="all, delete-orphan")
 
 
 class StoryGroup(Base):
@@ -188,8 +190,6 @@ class StoryGroupItem(Base):
 
     story_group = relationship("StoryGroup", back_populates="items")
     item = relationship("Item", back_populates="story_group_items")
-    favorited_by = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
-    collection_items = relationship("CollectionItem", back_populates="item", cascade="all, delete-orphan")
 
 
 class ExtractionRun(Base):

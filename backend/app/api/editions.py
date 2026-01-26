@@ -20,9 +20,9 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_admin_user, get_reader_user
 from app.db.database import SessionLocal, get_db
 from app.models import Edition, Item, Page
-from app.schemas import EditionResponse, EditionStatus
+from app.schemas import EditionResponse, EditionStatus, PageMetricsResponse, PageResponse
 from app.services.archive_service import archive_edition_now
-from app.services.processing_service import create_processing_service
+from app.services.processing_service import create_processing_service, reprocess_single_page
 from app.settings import settings
 
 router = APIRouter()
@@ -356,6 +356,100 @@ async def get_edition(
             detail="Edition not found"
         )
     return edition
+
+
+@router.get("/{edition_id}/pages/metrics", response_model=list[PageMetricsResponse])
+async def get_edition_page_metrics(
+    edition_id: int,
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user),
+):
+    """
+    Get per-page OCR confidence metrics for an edition.
+    """
+    edition = db.query(Edition).filter(Edition.id == edition_id).first()
+    if not edition:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Edition not found"
+        )
+
+    pages = (
+        db.query(Page)
+        .filter(Page.edition_id == edition_id)
+        .order_by(Page.page_number.asc())
+        .all()
+    )
+
+    metrics: list[PageMetricsResponse] = []
+    for page in pages:
+        ocr_meta = None
+        if isinstance(page.bbox_json, dict):
+            ocr_meta = page.bbox_json.get("ocr_meta")
+        metrics.append(PageMetricsResponse(
+            page_number=page.page_number,
+            status=page.status,
+            char_count=page.char_count,
+            ocr_used=page.ocr_used,
+            ocr_confidence=ocr_meta.get("avg_confidence") if isinstance(ocr_meta, dict) else None,
+            ocr_word_count=ocr_meta.get("word_count") if isinstance(ocr_meta, dict) else None,
+            ocr_engine=ocr_meta.get("engine") if isinstance(ocr_meta, dict) else None,
+            error_message=page.error_message,
+        ))
+
+    return metrics
+
+
+@router.get("/{edition_id}/pages/{page_number}", response_model=PageResponse)
+async def get_edition_page(
+    edition_id: int,
+    page_number: int,
+    db: Session = Depends(get_db),
+    _user = Depends(get_reader_user),
+):
+    """
+    Get a single page with extracted text and image path.
+    """
+    page = (
+        db.query(Page)
+        .filter(Page.edition_id == edition_id, Page.page_number == page_number)
+        .first()
+    )
+    if not page:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Page not found"
+        )
+    return page
+
+
+@router.post("/{edition_id}/pages/{page_number}/reocr", response_model=PageResponse)
+async def reprocess_page_ocr(
+    edition_id: int,
+    page_number: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(get_admin_user),
+):
+    """
+    Reprocess OCR + layout for a single page.
+    """
+    ok = reprocess_single_page(edition_id, page_number, db)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Page reprocess failed"
+        )
+    page = (
+        db.query(Page)
+        .filter(Page.edition_id == edition_id, Page.page_number == page_number)
+        .first()
+    )
+    if not page:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Page not found"
+        )
+    return page
 
 
 @router.post("/{edition_id}/reprocess", response_model=EditionResponse)

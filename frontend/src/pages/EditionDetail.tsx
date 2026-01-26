@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { editionsApi, itemsApi, favoritesApi, collectionsApi } from '../services/api';
-import { ItemType, Collection, EditionStatus, Item, StoryGroup } from '../types';
+import { ItemType, Collection, EditionStatus, Item, StoryGroup, PageMetrics, Page } from '../types';
 import { PageContainer } from '../components/layout';
 import { Button, Card, StatusBadge, ItemTypeBadge, Loading } from '../components/ui';
 import { CategoryList } from '../components/CategoryBadge';
@@ -23,6 +23,8 @@ const EditionDetail = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [showCollectionMenu, setShowCollectionMenu] = useState<number | null>(null);
   const [expandedStories, setExpandedStories] = useState<number[]>([]);
+  const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [pagePreview, setPagePreview] = useState<Page | null>(null);
 
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
@@ -48,6 +50,26 @@ const EditionDetail = () => {
     queryFn: () => itemsApi.getStoryGroups(editionId),
     enabled: !!edition && activeTab === 'stories',
   });
+
+  const { data: pageMetrics } = useQuery({
+    queryKey: ['edition-pages', editionId],
+    queryFn: () => editionsApi.getEditionPageMetrics(editionId),
+    enabled: !!edition,
+    refetchInterval: (query) =>
+      query.state.data && (edition?.status === 'PROCESSING' || edition?.status === 'UPLOADED')
+        ? 5000
+        : false,
+  });
+
+  const { data: pageDetail } = useQuery({
+    queryKey: ['edition-page', editionId, selectedPage],
+    queryFn: () => editionsApi.getEditionPage(editionId, selectedPage as number),
+    enabled: !!edition && selectedPage !== null,
+  });
+
+  useEffect(() => {
+    if (pageDetail) setPagePreview(pageDetail);
+  }, [pageDetail]);
 
   useEffect(() => {
     if (edition) {
@@ -190,6 +212,50 @@ const EditionDetail = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
+
+  const getConfidenceColor = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return '#e7e5e4';
+    if (value >= 85) return '#16a34a';
+    if (value >= 70) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const confidenceSummary = (metrics?: PageMetrics[]) => {
+    if (!metrics || metrics.length === 0) return { avg: null, lowCount: 0 };
+    const confs = metrics.map(m => m.ocr_confidence).filter((v): v is number => typeof v === 'number');
+    const avg = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : null;
+    const lowCount = confs.filter(v => v < 70).length;
+    return { avg, lowCount };
+  };
+
+  const getImageUrl = (imagePath?: string | null) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('/files/')) return imagePath;
+    const idx = imagePath.indexOf('storage/');
+    if (idx >= 0) return `/files/${imagePath.slice(idx + 'storage/'.length)}`;
+    if (imagePath.startsWith('./storage/')) return `/files/${imagePath.slice('./storage/'.length)}`;
+    return imagePath;
+  };
+
+  const lowConfidencePages = (pageMetrics || []).filter(
+    page => typeof page.ocr_confidence === 'number' && (page.ocr_confidence as number) < 70
+  );
+
+  const reprocessPageMutation = useMutation({
+    mutationFn: (pageNumber: number) => editionsApi.reprocessEditionPage(editionId, pageNumber),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['edition-pages', editionId] });
+      if (selectedPage) {
+        queryClient.invalidateQueries({ queryKey: ['edition-page', editionId, selectedPage] });
+      }
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      const responseDetail = axiosError.response?.data?.detail;
+      alert(`Re-OCR failed: ${responseDetail || errorMessage}`);
+    },
+  });
 
   const totalPages = edition?.total_pages ?? 0;
   const pagesProcessed = edition?.processed_pages ?? 0;
@@ -353,6 +419,169 @@ const EditionDetail = () => {
           )}
         </div>
       </Card>
+
+      <Card className="mb-6">
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ink-800">OCR Confidence Heatmap</h2>
+              <p className="text-sm text-stone-500">
+                Each square represents a page. Color reflects average OCR confidence.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-stone-600">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#16a34a' }} />
+                High
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
+                Medium
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+                Low
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#e7e5e4' }} />
+                Unknown
+              </div>
+            </div>
+          </div>
+
+          {pageMetrics && pageMetrics.length > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-1">
+                {pageMetrics.map((page) => {
+                  const conf = page.ocr_confidence;
+                  const tooltip = [
+                    `Page ${page.page_number}`,
+                    page.ocr_used ? `OCR: ${conf ?? 'n/a'}` : 'OCR: not used',
+                    page.ocr_engine ? `Engine: ${page.ocr_engine}` : null,
+                    page.char_count ? `Chars: ${page.char_count}` : null,
+                  ].filter(Boolean).join(' | ');
+                  return (
+                    <span
+                      key={page.page_number}
+                      title={tooltip}
+                      className="h-3.5 w-3.5 rounded-sm border border-white cursor-pointer"
+                      style={{ backgroundColor: getConfidenceColor(conf ?? null) }}
+                      onClick={() => setSelectedPage(page.page_number)}
+                    />
+                  );
+                })}
+              </div>
+              {(() => {
+                const summary = confidenceSummary(pageMetrics);
+                return (
+                  <div className="mt-3 text-xs text-stone-500">
+                    {summary.avg !== null ? `Average confidence: ${summary.avg}` : 'Average confidence: n/a'}
+                    {summary.lowCount > 0 && ` • Low-confidence pages: ${summary.lowCount}`}
+                  </div>
+                );
+              })()}
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-stone-700">Low-confidence pages</div>
+                  {isAdminUser && lowConfidencePages.length > 0 && (
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-700"
+                      onClick={() => lowConfidencePages.forEach(p => reprocessPageMutation.mutate(p.page_number))}
+                    >
+                      Re-OCR all
+                    </button>
+                  )}
+                </div>
+                {lowConfidencePages.length === 0 ? (
+                  <div className="text-xs text-stone-500">No low-confidence pages detected.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {lowConfidencePages.map(page => (
+                      <div
+                        key={`low-${page.page_number}`}
+                        className="flex items-center gap-2 px-2 py-1 rounded border border-stone-200 text-xs text-stone-700"
+                      >
+                        <button
+                          className="text-blue-600 hover:text-blue-700"
+                          onClick={() => setSelectedPage(page.page_number)}
+                        >
+                          Page {page.page_number}
+                        </button>
+                        {isAdminUser && (
+                          <button
+                            className="text-xs text-stone-500 hover:text-stone-700"
+                            onClick={() => reprocessPageMutation.mutate(page.page_number)}
+                          >
+                            Re-OCR
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-stone-500">No page metrics yet. Process an edition to populate this view.</div>
+          )}
+        </div>
+      </Card>
+
+      {selectedPage !== null && pagePreview && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+          onClick={() => setSelectedPage(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-[92vw] max-w-6xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
+              <div className="text-sm font-semibold text-ink-800">
+                Page {pagePreview.page_number} Preview
+              </div>
+              <div className="flex items-center gap-3">
+                {isAdminUser && (
+                  <button
+                    className="text-xs text-stone-600 hover:text-stone-800"
+                    onClick={() => reprocessPageMutation.mutate(pagePreview.page_number)}
+                  >
+                    Re-OCR
+                  </button>
+                )}
+                <button
+                  className="text-sm text-stone-500 hover:text-stone-700"
+                  onClick={() => setSelectedPage(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              <div className="border-r border-stone-200 p-4 overflow-auto max-h-[75vh] bg-stone-50">
+                {getImageUrl(pagePreview.image_path) ? (
+                  <img
+                    src={getImageUrl(pagePreview.image_path) as string}
+                    alt={`Page ${pagePreview.page_number}`}
+                    className="w-full h-auto shadow-md"
+                  />
+                ) : (
+                  <div className="text-sm text-stone-500">No page image available.</div>
+                )}
+              </div>
+              <div className="p-4 overflow-auto max-h-[75vh]">
+                <div className="text-xs text-stone-500 mb-2">
+                  OCR Text
+                </div>
+                <pre className="text-sm text-stone-700 whitespace-pre-wrap font-sans">
+                  {pagePreview.extracted_text || 'No extracted text available.'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content Tabs */}
       <Card>

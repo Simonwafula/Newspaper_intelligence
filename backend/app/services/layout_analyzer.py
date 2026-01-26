@@ -51,6 +51,13 @@ class LayoutAnalyzer:
         """
         headlines = []
 
+        font_sizes = [b.get("font_size") for b in text_blocks if isinstance(b.get("font_size"), (int, float))]
+        median_font = 0.0
+        if font_sizes:
+            font_sizes.sort()
+            mid = len(font_sizes) // 2
+            median_font = font_sizes[mid] if len(font_sizes) % 2 else (font_sizes[mid - 1] + font_sizes[mid]) / 2
+
         for i, block in enumerate(text_blocks):
             text = block['text'].strip()
             if not text or len(text) < 5:
@@ -77,6 +84,8 @@ class LayoutAnalyzer:
                 # Heuristic 4: Font-based (larger font is more likely a headline)
                 font_size = block.get('font_size', 0)
                 is_large_font = font_size > 14  # Typical body font is ~10-12pt
+                if median_font:
+                    is_large_font = font_size >= max(14, median_font * 1.4)
 
                 # Heuristic 5: Contains headline-like words
                 headline_indicators = [
@@ -273,6 +282,45 @@ class LayoutAnalyzer:
 
         return items
 
+    def _estimate_columns(self, text_blocks: list[dict], page_width: float) -> list[float]:
+        x_positions = sorted(
+            {float(block.get('bbox', [0, 0, 0, 0])[0]) for block in text_blocks if block.get('bbox')}
+        )
+        if not x_positions or page_width <= 0:
+            return [0.0]
+        gaps = []
+        for i in range(1, len(x_positions)):
+            gap = x_positions[i] - x_positions[i - 1]
+            if gap > page_width * 0.08:
+                gaps.append((x_positions[i - 1], x_positions[i], gap))
+        if not gaps:
+            return [0.0]
+        # Create column boundaries based on significant gaps (max 3 splits -> 4 columns)
+        gaps.sort(key=lambda g: g[2], reverse=True)
+        splits = sorted([g[1] for g in gaps[:3]])
+        columns = [0.0] + splits
+        return columns
+
+    def _order_blocks(self, text_blocks: list[dict], page_width: float) -> list[dict]:
+        if not text_blocks:
+            return []
+        columns = self._estimate_columns(text_blocks, page_width)
+
+        def column_index(x0: float) -> int:
+            idx = 0
+            for boundary in columns[1:]:
+                if x0 >= boundary:
+                    idx += 1
+            return idx
+
+        def key(block: dict) -> tuple[int, float, float]:
+            bbox = block.get('bbox', [0, 0, 0, 0])
+            x0 = float(bbox[0]) if bbox else 0.0
+            y0 = float(bbox[1]) if bbox else 0.0
+            return (column_index(x0), y0, x0)
+
+        return sorted(text_blocks, key=key)
+
     def analyze_page(self, page_info: dict) -> dict:
         """
         Analyze a page to extract structured items.
@@ -292,16 +340,20 @@ class LayoutAnalyzer:
                 'type': 'text'
             }]
 
+        page_width = float(page_info.get('width') or 0)
+        ordered_blocks = self._order_blocks(text_blocks, page_width)
+
         # Detect headlines
-        headlines = self.detect_headlines(text_blocks)
+        headlines = self.detect_headlines(ordered_blocks)
 
         # Extract items
-        items = self.extract_items_from_page(text_blocks, headlines)
+        items = self.extract_items_from_page(ordered_blocks, headlines)
 
         # Update page info
         page_info['headlines'] = headlines
         page_info['extracted_items'] = items
         page_info['num_items'] = len(items)
+        page_info['text_blocks'] = ordered_blocks
 
         # Add classification summary
         item_counts = {}

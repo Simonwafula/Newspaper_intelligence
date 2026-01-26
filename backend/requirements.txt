@@ -38,3 +38,4 @@ mypy==1.7.1
 # Optional: OCR dependencies (install separately)
 # - tesseract (system package)
 # - tesseract-language packs (system packages)
+# - paddleocr (pip, optional fallback engine)

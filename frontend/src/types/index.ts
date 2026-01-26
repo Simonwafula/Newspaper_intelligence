@@ -53,6 +53,17 @@ export interface Page {
   created_at: string;
 }
 
+export interface PageMetrics {
+  page_number: number;
+  status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
+  char_count: number;
+  ocr_used: boolean;
+  ocr_confidence?: number | null;
+  ocr_word_count?: number | null;
+  ocr_engine?: string | null;
+  error_message?: string | null;
+}
+
 export interface SearchResult {
   item_id: number;
   title?: string;
