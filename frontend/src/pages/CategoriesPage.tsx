@@ -30,12 +30,10 @@ const CategoriesPage: React.FC = () => {
     try {
       setLoading(true);
       const data = await categoriesApi.getCategories(0, 100, false);
-      setCategories(data.map((cat) => ({
-        ...cat,
-        item_count: 0,
-        avg_confidence: undefined,
-        recent_items: 0,
-      })));
+      const withStats = await Promise.all(
+        data.map((cat) => categoriesApi.getCategory(cat.id))
+      );
+      setCategories(withStats);
     } catch (err) {
       setError('Failed to load categories');
       console.error(err);
