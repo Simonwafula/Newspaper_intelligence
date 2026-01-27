@@ -51,7 +51,18 @@ class LayoutAnalyzer:
         """
         headlines = []
 
-        font_sizes = [b.get("font_size") for b in text_blocks if isinstance(b.get("font_size"), (int, float))]
+        font_sizes = []
+        for block in text_blocks:
+            font_size = block.get("font_size")
+            if isinstance(font_size, (int, float)) and font_size > 0:
+                font_sizes.append(font_size)
+                continue
+            bbox = block.get("bbox") or [0, 0, 0, 0]
+            height = float(bbox[3]) - float(bbox[1])
+            line_count = max(1, block.get("text", "").count("\n") + 1)
+            approx_size = height / line_count if line_count else 0.0
+            if approx_size > 0:
+                font_sizes.append(approx_size)
         median_font = 0.0
         if font_sizes:
             font_sizes.sort()
@@ -82,7 +93,11 @@ class LayoutAnalyzer:
                 is_near_top = y_position < 200  # Arbitrary threshold
 
                 # Heuristic 4: Font-based (larger font is more likely a headline)
-                font_size = block.get('font_size', 0)
+                font_size = block.get('font_size')
+                if not isinstance(font_size, (int, float)) or font_size <= 0:
+                    height = bbox[3] - bbox[1]
+                    line_count = max(1, text.count("\n") + 1)
+                    font_size = height / line_count if line_count else 0
                 is_large_font = font_size > 14  # Typical body font is ~10-12pt
                 if median_font:
                     is_large_font = font_size >= max(14, median_font * 1.4)
@@ -113,7 +128,8 @@ class LayoutAnalyzer:
                         'text': text,
                         'bbox': bbox,
                         'block_index': i,
-                        'score': score
+                        'score': score,
+                        'column': block.get('column'),
                     })
 
         # Sort headlines by score (highest first)
@@ -195,6 +211,8 @@ class LayoutAnalyzer:
             headline_idx = headline['block_index']
             if headline_idx in used_blocks:
                 continue
+            headline_col = headline.get('column')
+            headline_bbox = list(headline.get('bbox') or [0, 0, 0, 0])
 
             # Find text blocks that come after this headline
             grouped_text = [headline['text']]
@@ -210,8 +228,12 @@ class LayoutAnalyzer:
                 block_text = block['text'].strip()
 
                 # Stop if we hit another headline
-                if any(h['block_index'] == j for h in headlines):
+                if any(h['block_index'] == j and h.get('column') == headline_col for h in headlines):
                     break
+                if headline_col is not None and block.get('column') != headline_col:
+                    continue
+                if block.get('bbox') and headline_bbox and block['bbox'][1] < headline_bbox[1]:
+                    continue
 
                 # Include this block in the current item
                 grouped_text.append(block_text)
@@ -304,22 +326,112 @@ class LayoutAnalyzer:
     def _order_blocks(self, text_blocks: list[dict], page_width: float) -> list[dict]:
         if not text_blocks:
             return []
-        columns = self._estimate_columns(text_blocks, page_width)
+        blocks = [dict(block) for block in text_blocks]
+        columns = self._assign_columns(blocks)
+        ordered: list[dict] = []
+        for _, col_blocks in columns:
+            col_blocks.sort(key=lambda b: float((b.get('bbox') or [0, 0, 0, 0])[1]))
+            ordered.extend(self._merge_column_blocks(col_blocks))
+        return ordered
 
-        def column_index(x0: float) -> int:
-            idx = 0
-            for boundary in columns[1:]:
-                if x0 >= boundary:
-                    idx += 1
-            return idx
+    def _assign_columns(self, text_blocks: list[dict], x_overlap_threshold: float = 0.6) -> list[tuple[float, list[dict]]]:
+        columns: list[list[dict]] = []
+        col_boxes: list[list[float]] = []
+        for block in sorted(text_blocks, key=lambda b: (float((b.get('bbox') or [0, 0, 0, 0])[0]), float((b.get('bbox') or [0, 0, 0, 0])[1]))):
+            bbox = list(block.get('bbox') or [0, 0, 0, 0])
+            placed = False
+            for idx, col_box in enumerate(col_boxes):
+                if self._x_overlap_ratio(bbox, col_box) >= x_overlap_threshold:
+                    columns[idx].append(block)
+                    col_boxes[idx] = self._bbox_union(col_box, bbox)
+                    block['column'] = idx
+                    placed = True
+                    break
+            if not placed:
+                block['column'] = len(columns)
+                columns.append([block])
+                col_boxes.append(bbox)
+        ordered_columns = sorted(
+            [(col_boxes[i][0], columns[i]) for i in range(len(columns))],
+            key=lambda item: item[0],
+        )
+        for col_idx, (_, col_blocks) in enumerate(ordered_columns):
+            for block in col_blocks:
+                block['column'] = col_idx
+        return ordered_columns
 
-        def key(block: dict) -> tuple[int, float, float]:
-            bbox = block.get('bbox', [0, 0, 0, 0])
-            x0 = float(bbox[0]) if bbox else 0.0
-            y0 = float(bbox[1]) if bbox else 0.0
-            return (column_index(x0), y0, x0)
+    def _merge_column_blocks(self, blocks: list[dict]) -> list[dict]:
+        if not blocks:
+            return []
+        merged: list[dict] = []
+        for block in blocks:
+            if not merged:
+                merged.append(block)
+                continue
+            prev = merged[-1]
+            if not self._can_merge(prev, block):
+                merged.append(block)
+                continue
+            merged[-1] = self._merge_blocks(prev, block)
+        return merged
 
-        return sorted(text_blocks, key=key)
+    def _can_merge(self, a: dict, b: dict, gap_multiplier: float = 1.5) -> bool:
+        if a.get('column') != b.get('column'):
+            return False
+        if (a.get('type') or 'text') not in {'text', 'ocr_text'}:
+            return False
+        if (b.get('type') or 'text') not in {'text', 'ocr_text'}:
+            return False
+        a_bbox = a.get('bbox') or [0, 0, 0, 0]
+        b_bbox = b.get('bbox') or [0, 0, 0, 0]
+        gap = float(b_bbox[1]) - float(a_bbox[3])
+        line_height = self._estimate_line_height(a)
+        if gap > gap_multiplier * line_height:
+            return False
+        if self._x_overlap_ratio(a_bbox, b_bbox) < 0.7:
+            return False
+        return True
+
+    def _estimate_line_height(self, block: dict) -> float:
+        font_size = block.get('font_size')
+        if isinstance(font_size, (int, float)) and font_size > 0:
+            return float(font_size)
+        bbox = block.get('bbox') or [0, 0, 0, 0]
+        height = float(bbox[3]) - float(bbox[1])
+        lines = max(1, block.get("text", "").count("\n") + 1)
+        approx = height / lines if lines else 0.0
+        return max(10.0, min(40.0, approx))
+
+    def _merge_blocks(self, a: dict, b: dict) -> dict:
+        bbox = self._bbox_union(a.get('bbox') or [0, 0, 0, 0], b.get('bbox') or [0, 0, 0, 0])
+        text_a = a.get('text', '').strip()
+        text_b = b.get('text', '').strip()
+        merged_text = (text_a + "\n" + text_b).strip() if text_a and text_b else (text_a or text_b)
+        font_size = max(a.get('font_size') or 0, b.get('font_size') or 0)
+        merged = dict(a)
+        merged.update({
+            'text': merged_text,
+            'bbox': bbox,
+            'font_size': font_size or a.get('font_size') or b.get('font_size'),
+        })
+        return merged
+
+    def _x_overlap_ratio(self, a: list[float], b: list[float]) -> float:
+        inter_x1 = max(float(a[0]), float(b[0]))
+        inter_x2 = min(float(a[2]), float(b[2]))
+        inter = max(0.0, inter_x2 - inter_x1)
+        if inter == 0:
+            return 0.0
+        width = min(float(a[2]) - float(a[0]), float(b[2]) - float(b[0]))
+        return inter / width if width else 0.0
+
+    def _bbox_union(self, a: list[float], b: list[float]) -> list[float]:
+        return [
+            min(float(a[0]), float(b[0])),
+            min(float(a[1]), float(b[1])),
+            max(float(a[2]), float(b[2])),
+            max(float(a[3]), float(b[3])),
+        ]
 
     def analyze_page(self, page_info: dict) -> dict:
         """

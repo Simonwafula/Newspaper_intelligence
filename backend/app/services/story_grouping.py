@@ -12,6 +12,10 @@ from app.settings import settings
 
 CONTINUED_ON_RE = re.compile(r"continued\s+on\s+page\s+(\d+)", re.IGNORECASE)
 CONTINUED_FROM_RE = re.compile(r"continued\s+from\s+page\s+(\d+)", re.IGNORECASE)
+SEE_PAGE_RE = re.compile(r"(see|turn to)\s+page\s+(\d+)", re.IGNORECASE)
+PAGE_CONTINUED_RE = re.compile(r"page\s+(\d+)\s+continued", re.IGNORECASE)
+CONTINUED_RE = re.compile(r"continued\s+page\s+(\d+)", re.IGNORECASE)
+FROM_PAGE_RE = re.compile(r"from\s+page\s+(\d+)", re.IGNORECASE)
 
 
 @dataclass
@@ -66,6 +70,9 @@ def _normalize_text(text: str | None) -> str:
         return ""
     text = text.strip().lower()
     text = re.sub(r"continued\s+(from|on)\s+page\s+\d+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(see|turn to)\s+page\s+\d+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"page\s+\d+\s+continued", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(continued|from)\s+page\s+\d+", "", text, flags=re.IGNORECASE)
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
@@ -126,6 +133,28 @@ def _best_match(target: Item, candidates: list[Item]) -> Item | None:
     return None
 
 
+def _extract_page_refs(text: str | None) -> list[int]:
+    if not text:
+        return []
+    pages: list[int] = []
+    for pattern in [CONTINUED_ON_RE, CONTINUED_FROM_RE, SEE_PAGE_RE, PAGE_CONTINUED_RE, CONTINUED_RE, FROM_PAGE_RE]:
+        for match in pattern.finditer(text):
+            for group in match.groups():
+                if group and str(group).isdigit():
+                    pages.append(int(group))
+    return pages
+
+
+def _named_entity_overlap(a: Item, b: Item) -> float | None:
+    a_text = f"{a.title or ''} {a.text or ''}"
+    b_text = f"{b.title or ''} {b.text or ''}"
+    a_set = set(re.findall(r"\\b[A-Z][a-z]{2,}\\b", a_text))
+    b_set = set(re.findall(r"\\b[A-Z][a-z]{2,}\\b", b_text))
+    if not a_set or not b_set:
+        return None
+    return len(a_set & b_set) / len(a_set | b_set)
+
+
 def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
     story_items = [item for item in items if item.item_type == "STORY"]
     if not story_items:
@@ -139,17 +168,8 @@ def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
 
     for item in story_items:
         text = (item.text or "") + "\n" + (item.title or "")
-        on_match = CONTINUED_ON_RE.search(text)
-        if on_match:
-            target_page = int(on_match.group(1))
-            candidate = _best_match(item, items_by_page.get(target_page, []))
-            if candidate:
-                uf.union(item.id, candidate.id)
-
-        from_match = CONTINUED_FROM_RE.search(text)
-        if from_match:
-            source_page = int(from_match.group(1))
-            candidate = _best_match(item, items_by_page.get(source_page, []))
+        for page_ref in _extract_page_refs(text):
+            candidate = _best_match(item, items_by_page.get(page_ref, []))
             if candidate:
                 uf.union(item.id, candidate.id)
 
@@ -170,6 +190,9 @@ def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
                 b_text = _normalize_text((candidate.title or "") + " " + (candidate.text or "")[:600])
                 shared = set(_tokenize(a_text)) & set(_tokenize(b_text))
                 if len(shared) < min_tokens:
+                    continue
+                entity_overlap = _named_entity_overlap(item, candidate)
+                if entity_overlap is not None and entity_overlap < 0.2:
                     continue
                 score = _similarity_score(item, candidate)
                 if score >= similarity_threshold:

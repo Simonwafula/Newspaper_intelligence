@@ -1,0 +1,14 @@
+<View>
+  <Image name="img" value="$image"/>
+  <RectangleLabels toName="img" allowRotate="true" strokeWidth="2">
+    <Label value="headline" background="#ffb300"/>
+    <Label value="subhead" background="#ffd54f"/>
+    <Label value="byline" background="#ff7043"/>
+    <Label value="body" background="#64b5f6"/>
+    <Label value="caption" background="#ce93d8"/>
+    <Label value="image" background="#8d6e63"/>
+    <Label value="ad" background="#b0bec5"/>
+    <Label value="section" background="#9ccc65"/>
+  </RectangleLabels>
+  <TextArea name="story_id" toName="img" rows="1" editable="true" placeholder="Story id (same for related blocks)"/>
+</View>
