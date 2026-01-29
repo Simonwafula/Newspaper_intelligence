@@ -55,19 +55,45 @@ class PDFProcessor:
             logger.error(f"Error processing PDF {file_path}: {e}")
             raise
 
-    def get_page_image(self, file_path: str, page_num: int, dpi: int = 150) -> bytes:
+    def get_page_image(
+        self, file_path: str, page_num: int, dpi: int = 150, target_width: int | None = None
+    ) -> bytes:
         """
-        Render a PDF page as an image for OCR.
+        Render a PDF page as an image for OCR or layout detection.
+
+        Args:
+            file_path: Path to PDF file
+            page_num: Page number (0-indexed)
+            dpi: DPI for rendering (default 150, use 300-450 for layout detection)
+            target_width: Target width in pixels (alternative to DPI, takes precedence)
 
         Returns:
             Image bytes in PNG format
+
+        Phase 2 Enhancement:
+            Supports high-DPI rendering via either DPI or target_width parameter.
+            For layout detection, use target_width=2500-3500 for best results.
         """
         try:
             doc = fitz.open(file_path)
             page = doc[page_num]
 
-            # Create pixmap with specified DPI
-            mat = fitz.Matrix(dpi / 72, dpi / 72)  # Convert DPI to scale matrix
+            # Calculate scale matrix
+            if target_width is not None:
+                # Use target width to calculate scale
+                page_width = page.rect.width
+                scale = target_width / page_width
+                mat = fitz.Matrix(scale, scale)
+                logger.debug(
+                    f"Page {page_num + 1}: Rendering at target width {target_width}px "
+                    f"(scale: {scale:.2f}x)"
+                )
+            else:
+                # Use DPI to calculate scale
+                mat = fitz.Matrix(dpi / 72, dpi / 72)  # Convert DPI to scale matrix
+                logger.debug(f"Page {page_num + 1}: Rendering at {dpi} DPI")
+
+            # Create pixmap with calculated scale
             pix = page.get_pixmap(matrix=mat)
 
             # Convert to PNG bytes

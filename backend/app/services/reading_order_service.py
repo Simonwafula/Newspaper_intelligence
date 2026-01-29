@@ -1,5 +1,5 @@
 """
-Reading Order Service - Phase 2/5 Implementation
+Reading Order Service - Phase 2 Implementation
 
 This service assigns reading order to detected layout blocks, handling
 multi-column newspaper layouts correctly.
@@ -13,7 +13,7 @@ Key challenges in newspaper reading order:
 """
 
 import logging
-from typing import List
+from typing import Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -32,116 +32,145 @@ class ReadingOrderService:
         service = ReadingOrderService()
         ordered_blocks = service.assign_reading_order(blocks, page_width)
         for block in ordered_blocks:
-            print(f"Block {block.id} has reading order {block.reading_order}")
+            print(f"Block {block['id']} has reading order {block['reading_order']}")
     """
 
-    def __init__(self):
-        """Initialize the reading order service."""
+    def __init__(self, x_overlap_threshold: float = 0.6):
+        """
+        Initialize the reading order service.
+
+        Args:
+            x_overlap_threshold: Minimum x-axis overlap ratio to consider blocks in same column
+        """
+        self.x_overlap_threshold = x_overlap_threshold
         logger.info("Initializing ReadingOrderService")
 
-    def assign_reading_order(
-        self, blocks: List["DetectedBlock"], page_width: float
-    ) -> List["DetectedBlock"]:
+    def assign_reading_order(self, blocks: List[dict], page_width: float) -> List[dict]:
         """
         Assign reading order to blocks based on column layout.
 
         Args:
-            blocks: List of DetectedBlock objects with bboxes
+            blocks: List of block dictionaries with 'bbox' key
             page_width: Page width for column detection
 
         Returns:
-            Same blocks list with reading_order field populated
-
-        Implementation Notes (Phase 2 or Phase 5):
-            1. Detect columns:
-               - Use _detect_columns() from layout_analyzer.py
-               - Group blocks by x-coordinate overlap
-               - Handle variable column widths
-
-            2. Sort within columns:
-               - Primary key: column_index (left to right)
-               - Secondary key: y-position (top to bottom)
-               - Handle headlines that span columns
-
-            3. Assign order:
-               - Sequential numbers: 1, 2, 3, ...
-               - Add reading_order attribute to each block
-               - Also add column_index for reference
-
-            4. Special cases:
-               - Section headers: Usually span all columns, get low order
-               - Images/captions: Order based on their position
-               - Ads: Include in flow or mark separately
-
-        Reuse existing logic from:
-            backend/app/services/layout_analyzer.py:
-            - _assign_columns() (lines 337-361)
-            - _sort_blocks_by_reading_order() (lines 326-335)
+            Same blocks list with 'reading_order' and 'column_index' fields added
         """
-        raise NotImplementedError(
-            "Phase 2 or Phase 5: Implement reading order assignment. "
-            "Reuse column detection logic from layout_analyzer.py. "
-            "See plan file for detailed implementation guidance."
-        )
+        if not blocks:
+            return blocks
 
-    def _detect_columns(
-        self, blocks: List["DetectedBlock"], page_width: float
-    ) -> List[List["DetectedBlock"]]:
+        # Detect columns and assign column indices
+        columns = self._detect_columns(blocks)
+
+        # Assign reading order
+        reading_order = 1
+        for col_idx, (_, col_blocks) in enumerate(columns):
+            # Sort blocks within column by y-position (top to bottom)
+            sorted_blocks = sorted(col_blocks, key=lambda b: b['bbox'][1])
+
+            for block in sorted_blocks:
+                block['reading_order'] = reading_order
+                block['column_index'] = col_idx
+                reading_order += 1
+
+        logger.info(
+            f"Assigned reading order to {len(blocks)} blocks across {len(columns)} columns"
+        )
+        return blocks
+
+    def _detect_columns(self, blocks: List[dict]) -> List[tuple[float, List[dict]]]:
         """
         Detect column layout and group blocks by column.
 
+        Reuses logic from layout_analyzer.py _assign_columns().
+
         Args:
             blocks: List of all blocks
-            page_width: Page width
 
         Returns:
-            List of column groups, each containing blocks in that column
-
-        Implementation Notes (Phase 2/5):
-            1. Calculate x-centers for all blocks
-            2. Use clustering (e.g., k-means or gap-based)
-            3. Common newspaper layouts:
-               - 2 columns: split at ~50%
-               - 3 columns: split at ~33%, ~67%
-               - 4+ columns: detect gaps in x-distribution
-
-            Reference: layout_analyzer.py _assign_columns()
+            List of (x_position, column_blocks) tuples, sorted left to right
         """
-        raise NotImplementedError("Phase 2/5: Implement column detection")
+        if not blocks:
+            return []
 
-    def _sort_within_column(self, column_blocks: List["DetectedBlock"]) -> List["DetectedBlock"]:
+        columns: List[List[dict]] = []
+        col_boxes: List[List[float]] = []
+
+        # Sort blocks by x-position first, then y-position
+        sorted_blocks = sorted(
+            blocks, key=lambda b: (b['bbox'][0], b['bbox'][1])
+        )
+
+        for block in sorted_blocks:
+            bbox = block['bbox']
+            placed = False
+
+            # Try to place block in existing column
+            for idx, col_box in enumerate(col_boxes):
+                if self._x_overlap_ratio(bbox, col_box) >= self.x_overlap_threshold:
+                    columns[idx].append(block)
+                    # Expand column bounding box
+                    col_boxes[idx] = self._bbox_union(col_box, bbox)
+                    placed = True
+                    break
+
+            # Create new column if block doesn't fit in existing ones
+            if not placed:
+                columns.append([block])
+                col_boxes.append(bbox[:])  # Copy bbox
+
+        # Sort columns by x-position (left to right)
+        ordered_columns = sorted(
+            [(col_boxes[i][0], columns[i]) for i in range(len(columns))],
+            key=lambda item: item[0],
+        )
+
+        logger.debug(f"Detected {len(ordered_columns)} columns")
+        return ordered_columns
+
+    def _x_overlap_ratio(self, bbox1: List[float], bbox2: List[float]) -> float:
         """
-        Sort blocks within a column by vertical position.
+        Calculate horizontal overlap ratio between two bboxes.
 
         Args:
-            column_blocks: Blocks in a single column
+            bbox1: [x0, y0, x1, y1]
+            bbox2: [x0, y0, x1, y1]
 
         Returns:
-            Sorted blocks (top to bottom)
-
-        Implementation:
-            - Sort by y0 (top of bbox)
-            - Handle overlapping blocks (headlines over body)
-            - Headlines with large font should come before overlapping body text
+            Overlap ratio (0-1)
         """
-        return sorted(column_blocks, key=lambda b: b.bbox[1])  # Sort by y0
+        x1_min, _, x1_max, _ = bbox1
+        x2_min, _, x2_max, _ = bbox2
 
-    def _handle_spanning_elements(
-        self, blocks: List["DetectedBlock"], columns: List[List["DetectedBlock"]]
-    ) -> List["DetectedBlock"]:
+        # Calculate overlap
+        overlap_start = max(x1_min, x2_min)
+        overlap_end = min(x1_max, x2_max)
+        overlap = max(0, overlap_end - overlap_start)
+
+        # Calculate minimum width
+        width1 = x1_max - x1_min
+        width2 = x2_max - x2_min
+        min_width = min(width1, width2)
+
+        if min_width == 0:
+            return 0.0
+
+        return overlap / min_width
+
+    def _bbox_union(self, bbox1: List[float], bbox2: List[float]) -> List[float]:
         """
-        Handle elements that span multiple columns (headlines, section labels).
+        Calculate the union of two bounding boxes.
 
         Args:
-            blocks: All blocks
-            columns: Detected columns
+            bbox1: [x0, y0, x1, y1]
+            bbox2: [x0, y0, x1, y1]
 
         Returns:
-            Blocks with adjusted reading order for spanning elements
-
-        Implementation Notes:
-            - Detect blocks wider than a single column
-            - Place them before blocks in the columns they span
-            - Typically: section labels first, then headlines, then body
+            Union bbox [x0, y0, x1, y1]
         """
-        raise NotImplementedError("Phase 2/5: Implement spanning element handling")
+        return [
+            min(bbox1[0], bbox2[0]),  # x0
+            min(bbox1[1], bbox2[1]),  # y0
+            max(bbox1[2], bbox2[2]),  # x1
+            max(bbox1[3], bbox2[3]),  # y1
+        ]
