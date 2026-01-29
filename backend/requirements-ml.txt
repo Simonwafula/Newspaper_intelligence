@@ -1,0 +1,26 @@
+# Optional ML Dependencies for Advanced Layout Detection
+# Install with: pip install -r requirements-ml.txt
+#
+# These are not required for the base system (advanced_layout_enabled=False)
+# Only install when you want to enable ML-based features
+
+# ML Layout Detection (Phase 3)
+# Uncomment when ready to implement:
+# torch>=2.0.0,<3.0.0
+# torchvision>=0.15.0
+# detectron2 @ git+https://github.com/facebookresearch/detectron2.git@main
+# # OR: layoutparser[detectron2]>=0.3.4
+
+# Advanced OCR (Phase 4)
+# Uncomment when ready to implement:
+# paddleocr>=2.7.0
+# opencv-python>=4.8.0
+# opencv-contrib-python>=4.8.0
+
+# Semantic Similarity (Phase 6)
+# Uncomment when ready to implement:
+# sentence-transformers>=2.3.0
+
+# Optional: Performance optimization
+# onnxruntime>=1.16.0  # For faster CPU inference
+# openvino>=2023.0     # Intel optimization
