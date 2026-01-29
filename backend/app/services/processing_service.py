@@ -11,6 +11,7 @@ from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
 from app.services.ocr_service import create_ocr_service
 from app.services.pdf_processor import create_pdf_processor
+from app.services.reading_order_service import ReadingOrderService
 from app.services.story_grouping import persist_story_groups
 from app.settings import settings
 
@@ -24,6 +25,11 @@ class ProcessingService:
         self.pdf_processor = create_pdf_processor(settings.min_chars_for_native_text)
         self.ocr_service = create_ocr_service(settings.ocr_languages) if settings.ocr_enabled else None
         self.layout_analyzer = create_layout_analyzer()
+
+        # Phase 2: Initialize reading order service
+        self.reading_order = (
+            ReadingOrderService() if settings.advanced_layout_enabled else None
+        )
 
     def process_edition(self, edition_id: int, db: Session) -> bool:
         """
@@ -129,6 +135,44 @@ class ProcessingService:
                 db.commit()
 
                 try:
+                    # ========== STAGE 1: HIGH-DPI RENDERING (Phase 2) ==========
+                    high_res_image_path = None
+                    if settings.advanced_layout_enabled:
+                        edition.current_stage = "RENDER"  # type: ignore
+                        db.commit()
+
+                        # Render at high DPI or target width for layout detection
+                        render_dpi = settings.layout_detection_dpi
+                        target_width = settings.layout_detection_width if settings.layout_detection_width > 0 else None
+
+                        high_res_bytes = self.pdf_processor.get_page_image(
+                            pdf_path,
+                            page_index,
+                            dpi=render_dpi,
+                            target_width=target_width,
+                        )
+
+                        # Store high-res image
+                        pages_dir = os.path.join(settings.storage_path, "pages")
+                        os.makedirs(pages_dir, exist_ok=True)
+                        high_res_image_path = os.path.join(
+                            pages_dir, f"{edition_id}_{page_number}_hires.png"
+                        )
+                        with open(high_res_image_path, "wb") as f:
+                            f.write(high_res_bytes)
+
+                        # Store metadata
+                        page.high_res_image_path = high_res_image_path
+                        page.render_dpi = render_dpi if target_width is None else None
+                        page.render_width_px = target_width
+                        page.layout_method = "heuristic"  # Will be updated to "ml" in Phase 3
+
+                        logger.info(
+                            f"Page {page_number}: Rendered at "
+                            f"{f'{render_dpi} DPI' if target_width is None else f'{target_width}px width'}"
+                        )
+
+                    # ========== STAGE 2: EXTRACT (EXISTING) ==========
                     edition.current_stage = "EXTRACT"  # type: ignore
                     db.commit()
 
@@ -209,6 +253,22 @@ class ProcessingService:
                     except Exception as e:
                         logger.error(f"Layout analysis failed for page {page_number}: {e}")
                         page_data["extracted_items"] = []
+
+                    # ========== STAGE 3: READING ORDER (Phase 2) ==========
+                    if settings.reading_order_enabled and self.reading_order:
+                        try:
+                            text_blocks = page_data.get("text_blocks", [])
+                            if text_blocks:
+                                # Assign reading order to text blocks
+                                ordered_blocks = self.reading_order.assign_reading_order(
+                                    text_blocks, page_data.get("width", 0)
+                                )
+                                page_data["text_blocks"] = ordered_blocks
+                                logger.debug(
+                                    f"Page {page_number}: Assigned reading order to {len(ordered_blocks)} blocks"
+                                )
+                        except Exception as e:
+                            logger.warning(f"Reading order assignment failed for page {page_number}: {e}")
 
                     edition.current_stage = "INDEX"  # type: ignore
                     db.commit()
