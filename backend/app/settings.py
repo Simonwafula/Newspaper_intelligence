@@ -48,6 +48,41 @@ class Settings(BaseSettings):
     story_grouping_min_shared_tokens: int = 3
     archive_after_days: int = 5
 
+    # === ADVANCED LAYOUT DETECTION (Phase 1+) ===
+    # Master feature flag - set to True to enable ML-based pipeline
+    advanced_layout_enabled: bool = False
+
+    # High-DPI page rendering
+    layout_detection_dpi: int = 300  # 300-450 DPI recommended for layout detection
+    layout_detection_width: int = 2500  # Alternative to DPI - target width in pixels
+    layout_detection_method: str = "auto"  # auto, detectron2, layoutparser, heuristic
+
+    # Layout detection model configuration
+    layout_model_device: str = "cpu"  # cpu or cuda
+    layout_model_path: str | None = None  # Custom model path if needed
+    layout_model_name: str = "lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config"
+    layout_confidence_threshold: float = 0.7  # Min confidence for block detection
+
+    # Block-level OCR settings
+    block_ocr_enabled: bool = True
+    block_ocr_engine: str = "paddle"  # paddle, tesseract, auto
+    block_ocr_lang: str = "en"  # OCR language code
+
+    # Reading order detection
+    reading_order_enabled: bool = True
+
+    # === SEMANTIC STORY GROUPING (Phase 6+) ===
+    semantic_grouping_enabled: bool = False  # Enable BGE embeddings for story grouping
+    semantic_model_name: str = "BAAI/bge-small-en-v1.5"  # BGE model for embeddings
+    semantic_model_device: str = "cpu"  # cpu or cuda
+    semantic_similarity_threshold: float = 0.65  # Min similarity for story continuation
+    semantic_embedding_dim: int = 384  # Embedding dimension (384 for bge-small)
+
+    # Hybrid story grouping weights
+    semantic_weight: float = 0.4  # Weight for semantic similarity
+    token_weight: float = 0.3  # Weight for token overlap
+    explicit_ref_weight: float = 0.3  # Weight for explicit page references
+
     # Google Drive archiving
     gdrive_enabled: bool = False
     gdrive_folder_id: str | None = None

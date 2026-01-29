@@ -115,6 +115,15 @@ class Page(Base):
     # Layout information
     bbox_json = Column(JSON, nullable=True)  # Bounding boxes for text blocks
 
+    # Advanced layout detection (Phase 1)
+    high_res_image_path = Column(String(500), nullable=True)  # High-DPI page image
+    render_dpi = Column(Integer, nullable=True)  # DPI used for rendering
+    render_width_px = Column(Integer, nullable=True)  # Width in pixels
+    layout_model_used = Column(String(50), nullable=True)  # Model name/version
+    layout_confidence = Column(Float, nullable=True)  # Average layout detection confidence
+    layout_method = Column(String(20), nullable=True)  # 'ml' or 'heuristic'
+    ocr_words_json = Column(JSON, nullable=True)  # Word-level OCR data with coordinates
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -141,6 +150,8 @@ class Item(Base):
 
     # Layout information
     bbox_json = Column(JSON, nullable=True)
+    blocks_json = Column(JSON, nullable=True)  # Block-level text blocks with type, bbox, reading_order
+    embedding_json = Column(JSON, nullable=True)  # Text embeddings for semantic search
 
     # Extracted entities
     extracted_entities_json = Column(JSON, nullable=True)
@@ -174,6 +185,12 @@ class StoryGroup(Base):
     pages_json = Column(JSON, nullable=False, default=list)
     excerpt = Column(Text, nullable=True)
     full_text = Column(Text, nullable=True)
+
+    # Semantic grouping enhancements
+    embedding_json = Column(JSON, nullable=True)  # Story embeddings for semantic matching
+    grouping_method = Column(String(20), nullable=True)  # 'semantic' or 'heuristic'
+    similarity_score = Column(Float, nullable=True)  # Semantic similarity score
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     edition = relationship("Edition", back_populates="story_groups")
