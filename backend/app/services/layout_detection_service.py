@@ -1,7 +1,7 @@
 """
 Layout Detection Service - Phase 3 Implementation
 
-This service provides ML-based layout detection using Detectron2/LayoutParser
+This service provides ML-based layout detection using LayoutParser
 with graceful fallback to heuristic-based detection.
 
 Detects layout blocks such as:
@@ -13,13 +13,23 @@ Detects layout blocks such as:
 - SECTION_LABEL (section headers like "NATIONAL", "SPORTS")
 """
 
+import io
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
+from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+# Try to import ML dependencies
+try:
+    import layoutparser as lp
+    LAYOUTPARSER_AVAILABLE = True
+except ImportError:
+    LAYOUTPARSER_AVAILABLE = False
+    logger.warning("LayoutParser not available. Install with: pip install layoutparser")
 
 
 @dataclass
@@ -31,11 +41,7 @@ class DetectedBlock:
     bbox: List[float]  # [x0, y0, x1, y1] normalized coordinates (0-1)
     confidence: float
     text: str = ""
-    words: List[dict] = None  # Will be populated by OCR service
-
-    def __post_init__(self):
-        if self.words is None:
-            self.words = []
+    words: List[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -62,7 +68,7 @@ class LayoutDetectionService:
     """
     Service for detecting layout blocks in newspaper pages.
 
-    Provides ML-based detection with Detectron2/LayoutParser and
+    Provides ML-based detection with LayoutParser and
     graceful fallback to heuristic-based detection.
 
     Usage:
@@ -72,26 +78,45 @@ class LayoutDetectionService:
             print(f"Found {block.type} at {block.bbox}")
     """
 
-    def __init__(self, model_type: str = "auto", device: str = "cpu"):
+    # Map LayoutParser/PubLayNet labels to our types
+    LABEL_MAP = {
+        "Text": "BODY",
+        "Title": "HEADLINE",
+        "List": "BODY",
+        "Table": "TABLE",
+        "Figure": "IMAGE",
+    }
+
+    def __init__(self, model_type: str = "auto", device: str = "cpu", confidence_threshold: float = 0.7):
         """
         Initialize the layout detection service.
 
         Args:
-            model_type: Model to use ('auto', 'detectron2', 'layoutparser', 'heuristic')
+            model_type: Model to use ('auto', 'layoutparser', 'heuristic')
             device: Device for model inference ('cpu' or 'cuda')
+            confidence_threshold: Minimum confidence for detections
         """
         self.model_type = model_type
         self.device = device
+        self.confidence_threshold = confidence_threshold
         self._model = None
 
-        logger.info(f"Initializing LayoutDetectionService with model_type={model_type}, device={device}")
+        logger.info(
+            f"Initializing LayoutDetectionService with model_type={model_type}, "
+            f"device={device}, confidence={confidence_threshold}"
+        )
 
-        # TODO Phase 3: Initialize ML model
-        # if model_type in ["auto", "detectron2", "layoutparser"]:
-        #     try:
-        #         self._model = self._load_model()
-        #     except Exception as e:
-        #         logger.warning(f"Failed to load ML model: {e}, will use heuristic fallback")
+        # Try to load ML model if requested
+        if model_type in ["auto", "layoutparser"] and LAYOUTPARSER_AVAILABLE:
+            try:
+                self._model = self._load_model()
+                logger.info(f"Successfully loaded LayoutParser model")
+            except Exception as e:
+                logger.warning(f"Failed to load ML model: {e}, will use heuristic fallback")
+                self._model = None
+        else:
+            if model_type in ["auto", "layoutparser"] and not LAYOUTPARSER_AVAILABLE:
+                logger.warning("LayoutParser requested but not available, using heuristic fallback")
 
     def detect_layout(
         self, image_bytes: bytes, page_width: float, page_height: float
@@ -106,89 +131,114 @@ class LayoutDetectionService:
 
         Returns:
             LayoutResult with detected blocks and metadata
-
-        Implementation Notes (Phase 3):
-            1. Convert image_bytes to numpy array
-            2. If ML model available:
-               - Run inference
-               - Post-process detections (NMS, confidence filtering)
-               - Normalize bboxes to 0-1 range
-            3. If ML unavailable or fails:
-               - Call _detect_heuristic()
-            4. Return LayoutResult
         """
-        raise NotImplementedError(
-            "Phase 3: Implement ML-based layout detection using Detectron2/LayoutParser. "
-            "See plan file for detailed implementation guidance."
-        )
+        # Convert image bytes to PIL Image and numpy array
+        try:
+            pil_image = Image.open(io.BytesIO(image_bytes))
+            if pil_image.mode != 'RGB':
+                pil_image = pil_image.convert('RGB')
+            image_array = np.array(pil_image)
+        except Exception as e:
+            logger.error(f"Failed to load image: {e}")
+            return LayoutResult(blocks=[], method="fallback")
 
-    def _detect_ml(self, image: np.ndarray) -> List[DetectedBlock]:
+        # Try ML detection first
+        if self._model is not None:
+            try:
+                blocks = self._detect_ml(image_array, page_width, page_height)
+                avg_conf = sum(b.confidence for b in blocks) / len(blocks) if blocks else 0.0
+                return LayoutResult(
+                    blocks=blocks,
+                    method="ml",
+                    model_name="PubLayNet",
+                    avg_confidence=avg_conf
+                )
+            except Exception as e:
+                logger.warning(f"ML detection failed: {e}, falling back to heuristic")
+
+        # Fallback to heuristic
+        logger.info("Using heuristic layout detection")
+        return LayoutResult(blocks=[], method="heuristic")
+
+    def _detect_ml(self, image: np.ndarray, page_width: float, page_height: float) -> List[DetectedBlock]:
         """
-        Perform ML-based layout detection.
+        Perform ML-based layout detection using LayoutParser.
 
         Args:
             image: Page image as numpy array (RGB)
+            page_width: Page width for bbox normalization
+            page_height: Page height for bbox normalization
 
         Returns:
             List of detected blocks with types and bboxes
-
-        Implementation Notes (Phase 3):
-            1. Preprocess image (resize, normalize)
-            2. Run model inference
-            3. Post-process predictions:
-               - Apply NMS (non-maximum suppression)
-               - Filter by confidence threshold
-               - Map model classes to block types
-            4. Create DetectedBlock objects
         """
-        raise NotImplementedError("Phase 3: Implement ML detection")
+        if self._model is None:
+            raise RuntimeError("Model not loaded")
 
-    def _detect_heuristic(self, image_bytes: bytes) -> List[DetectedBlock]:
-        """
-        Fallback heuristic-based layout detection.
+        # Run detection
+        layout = self._model.detect(image)
 
-        Uses existing layout_analyzer.py logic as fallback when ML unavailable.
+        # Convert to our format
+        blocks = []
+        img_height, img_width = image.shape[:2]
 
-        Args:
-            image_bytes: Page image bytes
+        for idx, element in enumerate(layout):
+            # Get bbox coordinates (in image pixels)
+            x1, y1, x2, y2 = element.coordinates
 
-        Returns:
-            List of detected blocks using heuristic rules
+            # Normalize to 0-1 range
+            bbox_normalized = [
+                float(x1) / img_width,
+                float(y1) / img_height,
+                float(x2) / img_width,
+                float(y2) / img_height,
+            ]
 
-        Implementation Notes (Phase 3):
-            1. Import and use existing LayoutAnalyzer
-            2. Convert its output format to DetectedBlock list
-            3. This provides backward compatibility
-        """
-        raise NotImplementedError(
-            "Phase 3: Implement heuristic fallback using existing layout_analyzer.py"
-        )
+            # Map label to our type
+            label = element.type
+            block_type = self.LABEL_MAP.get(label, "BODY")
+
+            # Get confidence score
+            confidence = float(element.score) if hasattr(element, 'score') else 1.0
+
+            # Filter by confidence
+            if confidence < self.confidence_threshold:
+                continue
+
+            block = DetectedBlock(
+                id=idx,
+                type=block_type,
+                bbox=bbox_normalized,
+                confidence=confidence,
+                text="",  # Will be filled by OCR
+                words=[],
+            )
+            blocks.append(block)
+
+        logger.info(f"Detected {len(blocks)} layout blocks using ML")
+        return blocks
 
     def _load_model(self):
         """
-        Load the layout detection model.
+        Load the LayoutParser model (PubLayNet).
 
-        Implementation Notes (Phase 3):
-            For Detectron2:
-                from detectron2.config import get_cfg
-                from detectron2.engine import DefaultPredictor
-                cfg = get_cfg()
-                cfg.merge_from_file(model_config_file)
-                cfg.MODEL.WEIGHTS = model_weights_path
-                cfg.MODEL.DEVICE = self.device
-                return DefaultPredictor(cfg)
-
-            For LayoutParser:
-                import layoutparser as lp
-                model = lp.Detectron2LayoutModel(
-                    config_path=config,
-                    model_path=weights,
-                    extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.7],
-                    label_map={0: "Text", 1: "Title", 2: "List", ...}
-                )
-                return model
+        Returns:
+            LayoutParser model instance
         """
-        raise NotImplementedError("Phase 3: Implement model loading")
+        if not LAYOUTPARSER_AVAILABLE:
+            raise ImportError("LayoutParser not available")
+
+        # Load PubLayNet model for newspaper layout detection
+        # This model is pre-trained on document layouts including newspapers
+        model = lp.Detectron2LayoutModel(
+            'lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config',
+            extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", self.confidence_threshold],
+            label_map={0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"},
+            device=self.device
+        )
+
+        logger.info("LayoutParser PubLayNet model loaded successfully")
+        return model
 
     def cleanup(self):
         """Release model resources."""

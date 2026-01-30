@@ -9,6 +9,7 @@ from app.models import Edition, ExtractionRun, Item, Page
 from app.schemas import EditionStatus
 from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
+from app.services.layout_detection_service import LayoutDetectionService
 from app.services.ocr_service import create_ocr_service
 from app.services.pdf_processor import create_pdf_processor
 from app.services.reading_order_service import ReadingOrderService
@@ -30,6 +31,20 @@ class ProcessingService:
         self.reading_order = (
             ReadingOrderService() if settings.advanced_layout_enabled else None
         )
+
+        # Phase 3: Initialize layout detection service
+        self.layout_detector = None
+        if settings.advanced_layout_enabled and settings.layout_detection_method != "heuristic":
+            try:
+                self.layout_detector = LayoutDetectionService(
+                    model_type=settings.layout_detection_method,
+                    device=settings.layout_model_device,
+                    confidence_threshold=settings.layout_confidence_threshold,
+                )
+                logger.info("Layout detection service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize layout detection: {e}, will use heuristic")
+                self.layout_detector = None
 
     def process_edition(self, edition_id: int, db: Session) -> bool:
         """
@@ -171,6 +186,37 @@ class ProcessingService:
                             f"Page {page_number}: Rendered at "
                             f"{f'{render_dpi} DPI' if target_width is None else f'{target_width}px width'}"
                         )
+
+                    # ========== STAGE 1.5: LAYOUT DETECTION (Phase 3) ==========
+                    detected_blocks = None
+                    if settings.advanced_layout_enabled and self.layout_detector and high_res_image_path:
+                        edition.current_stage = "LAYOUT_DETECT"  # type: ignore
+                        db.commit()
+
+                        try:
+                            # Run ML-based layout detection on high-res image
+                            with open(high_res_image_path, "rb") as f:
+                                high_res_bytes_for_detection = f.read()
+
+                            layout_result = self.layout_detector.detect_layout(
+                                high_res_bytes_for_detection,
+                                page_data.get("width", 0),
+                                page_data.get("height", 0),
+                            )
+
+                            detected_blocks = layout_result.blocks
+                            page.layout_model_used = layout_result.model_name
+                            page.layout_method = layout_result.method
+                            page.layout_confidence = layout_result.avg_confidence
+
+                            logger.info(
+                                f"Page {page_number}: Detected {len(detected_blocks)} blocks "
+                                f"using {layout_result.method} (confidence: {layout_result.avg_confidence:.2f})"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Layout detection failed for page {page_number}: {e}")
+                            detected_blocks = None
+                            page.layout_method = "heuristic"
 
                     # ========== STAGE 2: EXTRACT (EXISTING) ==========
                     edition.current_stage = "EXTRACT"  # type: ignore

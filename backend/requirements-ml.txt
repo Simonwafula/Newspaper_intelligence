@@ -4,23 +4,29 @@
 # These are not required for the base system (advanced_layout_enabled=False)
 # Only install when you want to enable ML-based features
 
-# ML Layout Detection (Phase 3)
-# Uncomment when ready to implement:
-# torch>=2.0.0,<3.0.0
-# torchvision>=0.15.0
-# detectron2 @ git+https://github.com/facebookresearch/detectron2.git@main
-# # OR: layoutparser[detectron2]>=0.3.4
+# ========== PHASE 3: ML LAYOUT DETECTION ==========
+# PyTorch (required by LayoutParser and Detectron2)
+torch>=2.0.0,<3.0.0
+torchvision>=0.15.0
 
-# Advanced OCR (Phase 4)
-# Uncomment when ready to implement:
+# LayoutParser with Detectron2 backend for layout detection
+layoutparser[layoutmodels,effdet]>=0.3.4
+# Note: layoutparser[layoutmodels] includes Detectron2
+
+# Required by LayoutParser
+opencv-python>=4.8.0
+pillow>=9.0.0
+
+# ========== PHASE 4: ADVANCED OCR (Future) ==========
+# Uncomment when ready to implement block-level OCR:
 # paddleocr>=2.7.0
-# opencv-python>=4.8.0
 # opencv-contrib-python>=4.8.0
 
-# Semantic Similarity (Phase 6)
-# Uncomment when ready to implement:
+# ========== PHASE 6: SEMANTIC GROUPING (Future) ==========
+# Uncomment when ready to implement BGE embeddings:
 # sentence-transformers>=2.3.0
 
-# Optional: Performance optimization
-# onnxruntime>=1.16.0  # For faster CPU inference
+# ========== OPTIONAL: PERFORMANCE OPTIMIZATION ==========
+# Uncomment for faster inference:
+# onnxruntime>=1.16.0  # For ONNX model inference (faster CPU)
 # openvino>=2023.0     # Intel optimization
