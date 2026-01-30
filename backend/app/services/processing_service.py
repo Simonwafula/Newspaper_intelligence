@@ -9,6 +9,7 @@ from app.models import Edition, ExtractionRun, Item, Page
 from app.schemas import EditionStatus
 from app.services.block_ocr_service import BlockOCRService
 from app.services.category_classifier import CategoryClassifier
+from app.services.layout_assembler import LayoutAssembler
 from app.services.layout_analyzer import create_layout_analyzer
 from app.services.layout_detection_service import LayoutDetectionService
 from app.services.ocr_service import create_ocr_service
@@ -61,6 +62,16 @@ class ProcessingService:
             except Exception as e:
                 logger.warning(f"Failed to initialize block OCR: {e}, will use fallback")
                 self.block_ocr = None
+
+        # Phase 5: Initialize layout assembler
+        self.layout_assembler = None
+        if settings.advanced_layout_enabled:
+            try:
+                self.layout_assembler = LayoutAssembler()
+                logger.info("Layout assembler initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize layout assembler: {e}")
+                self.layout_assembler = None
 
     def process_edition(self, edition_id: int, db: Session) -> bool:
         """
@@ -290,6 +301,54 @@ class ProcessingService:
                             logger.warning(f"Block OCR failed for page {page_number}: {e}")
                             page.ocr_words_json = None
 
+                    # ========== STAGE 5: STORY ASSEMBLY (Phase 5) ==========
+                    assembled_items = None
+                    if (
+                        settings.advanced_layout_enabled
+                        and self.layout_assembler
+                        and detected_blocks
+                    ):
+                        edition.current_stage = "STORY_ASSEMBLY"  # type: ignore
+                        db.commit()
+
+                        try:
+                            # Assemble detected blocks into Items
+                            item_groups = self.layout_assembler.assemble_items(detected_blocks)
+
+                            # Convert ItemGroups to extracted_items format
+                            assembled_items = []
+                            for group in item_groups:
+                                group_dict = group.to_dict()
+
+                                # Create item data compatible with existing format
+                                item_data = {
+                                    "item_type": group_dict["item_type"],
+                                    "subtype": group_dict.get("item_subtype"),
+                                    "title": None,  # No title extraction yet
+                                    "text": group_dict["text"],
+                                    "bbox_json": {
+                                        "bbox": group_dict["bbox"],
+                                        "blocks": group_dict["blocks"],  # NEW: structured blocks
+                                    },
+                                    "blocks_json": group_dict["blocks"],  # NEW: Phase 5 field
+                                    "structured_data": None,
+                                    "contact_info_json": None,
+                                    "price_info_json": None,
+                                    "date_info_json": None,
+                                    "location_info_json": None,
+                                    "classification_details_json": None,
+                                }
+                                assembled_items.append(item_data)
+
+                            logger.info(
+                                f"Page {page_number}: Assembled {len(assembled_items)} items "
+                                f"from {len(detected_blocks)} blocks"
+                            )
+
+                        except Exception as e:
+                            logger.warning(f"Story assembly failed for page {page_number}: {e}")
+                            assembled_items = None
+
                     # ========== STAGE 2: EXTRACT (EXISTING) ==========
                     edition.current_stage = "EXTRACT"  # type: ignore
                     db.commit()
@@ -366,11 +425,19 @@ class ProcessingService:
                     edition.current_stage = "LAYOUT"  # type: ignore
                     db.commit()
 
-                    try:
-                        page_data = self.layout_analyzer.analyze_page(page_data)
-                    except Exception as e:
-                        logger.error(f"Layout analysis failed for page {page_number}: {e}")
-                        page_data["extracted_items"] = []
+                    # Use assembled items from ML pipeline if available
+                    if assembled_items is not None:
+                        page_data["extracted_items"] = assembled_items
+                        logger.debug(
+                            f"Page {page_number}: Using {len(assembled_items)} assembled items from ML pipeline"
+                        )
+                    else:
+                        # Fallback to existing heuristic layout analyzer
+                        try:
+                            page_data = self.layout_analyzer.analyze_page(page_data)
+                        except Exception as e:
+                            logger.error(f"Layout analysis failed for page {page_number}: {e}")
+                            page_data["extracted_items"] = []
 
                     # ========== STAGE 3: READING ORDER (Phase 2) ==========
                     if settings.reading_order_enabled and self.reading_order:
@@ -412,6 +479,7 @@ class ProcessingService:
                             title=item_data.get("title"),
                             text=item_data.get("text"),
                             bbox_json=item_data.get("bbox_json"),
+                            blocks_json=item_data.get("blocks_json"),  # NEW: Phase 5 field
                             structured_data=item_data.get("structured_data"),
                             contact_info_json=item_data.get("contact_info_json"),
                             price_info_json=item_data.get("price_info_json"),
