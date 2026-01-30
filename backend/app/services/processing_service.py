@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Edition, ExtractionRun, Item, Page
 from app.schemas import EditionStatus
+from app.services.block_ocr_service import BlockOCRService
 from app.services.category_classifier import CategoryClassifier
 from app.services.layout_analyzer import create_layout_analyzer
 from app.services.layout_detection_service import LayoutDetectionService
@@ -45,6 +46,21 @@ class ProcessingService:
             except Exception as e:
                 logger.warning(f"Failed to initialize layout detection: {e}, will use heuristic")
                 self.layout_detector = None
+
+        # Phase 4: Initialize block OCR service
+        self.block_ocr = None
+        if settings.advanced_layout_enabled and settings.block_ocr_enabled:
+            try:
+                self.block_ocr = BlockOCRService(
+                    prefer_paddle=(settings.block_ocr_engine == "paddle"),
+                    lang=settings.block_ocr_lang if hasattr(settings, 'block_ocr_lang') else 'en',
+                    use_gpu=(settings.layout_model_device == "cuda"),
+                    confidence_threshold=getattr(settings, 'block_ocr_confidence_threshold', 0.5),
+                )
+                logger.info("Block OCR service initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize block OCR: {e}, will use fallback")
+                self.block_ocr = None
 
     def process_edition(self, edition_id: int, db: Session) -> bool:
         """
@@ -217,6 +233,62 @@ class ProcessingService:
                             logger.warning(f"Layout detection failed for page {page_number}: {e}")
                             detected_blocks = None
                             page.layout_method = "heuristic"
+
+                    # ========== STAGE 4: BLOCK-LEVEL OCR (Phase 4) ==========
+                    if (
+                        settings.advanced_layout_enabled
+                        and settings.block_ocr_enabled
+                        and self.block_ocr
+                        and detected_blocks
+                        and high_res_image_path
+                    ):
+                        edition.current_stage = "BLOCK_OCR"  # type: ignore
+                        db.commit()
+
+                        try:
+                            # Load high-res image as numpy array
+                            import numpy as np
+                            from PIL import Image as PILImage
+
+                            with PILImage.open(high_res_image_path) as img:
+                                if img.mode != 'RGB':
+                                    img = img.convert('RGB')
+                                high_res_array = np.array(img)
+
+                            # Run block-level OCR on detected blocks
+                            ocr_results = self.block_ocr.batch_extract(detected_blocks, high_res_array)
+
+                            # Update blocks with OCR text and words
+                            for block, ocr_result in zip(detected_blocks, ocr_results):
+                                block.text = ocr_result.text
+                                block.words = ocr_result.words
+
+                            # Store OCR words in page.ocr_words_json
+                            # Format: [{"text": "...", "bbox": [...], "confidence": 0.95, "block_id": 123}, ...]
+                            all_words = []
+                            for block in detected_blocks:
+                                for word in block.words:
+                                    all_words.append({
+                                        "text": word["text"],
+                                        "bbox": word["bbox"],
+                                        "confidence": word["confidence"],
+                                        "block_id": block.id,
+                                    })
+
+                            page.ocr_words_json = all_words
+
+                            # Calculate stats
+                            total_confidence = sum(w["confidence"] for w in all_words)
+                            avg_conf = total_confidence / len(all_words) if all_words else 0.0
+
+                            logger.info(
+                                f"Page {page_number}: Block OCR extracted {len(all_words)} words "
+                                f"from {len(detected_blocks)} blocks (avg conf: {avg_conf:.2f})"
+                            )
+
+                        except Exception as e:
+                            logger.warning(f"Block OCR failed for page {page_number}: {e}")
+                            page.ocr_words_json = None
 
                     # ========== STAGE 2: EXTRACT (EXISTING) ==========
                     edition.current_stage = "EXTRACT"  # type: ignore

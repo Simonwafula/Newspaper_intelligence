@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     block_ocr_enabled: bool = True
     block_ocr_engine: str = "paddle"  # paddle, tesseract, auto
     block_ocr_lang: str = "en"  # OCR language code
+    block_ocr_confidence_threshold: float = 0.5  # Min confidence for word detection
 
     # Reading order detection
     reading_order_enabled: bool = True
