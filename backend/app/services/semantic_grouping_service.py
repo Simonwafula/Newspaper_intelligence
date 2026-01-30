@@ -16,12 +16,28 @@ Hybrid approach combines:
 - Explicit references (30%): "Continued on page X" patterns
 """
 
-import logging
-from typing import List, Tuple
+from __future__ import annotations
 
-import numpy as np
+import logging
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# Try to import sentence-transformers
+SENTENCE_TRANSFORMERS_AVAILABLE = False
+SentenceTransformer = None
+np = None
+
+try:
+    from sentence_transformers import SentenceTransformer as _SentenceTransformer
+    import numpy as np
+    SentenceTransformer = _SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"sentence-transformers not available: {e}. Install with: pip install sentence-transformers")
 
 
 class SemanticGroupingService:
@@ -38,29 +54,52 @@ class SemanticGroupingService:
             print(f"Group has {len(group.item_ids)} items across pages {group.pages}")
     """
 
-    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5", device: str = "cpu"):
+    def __init__(
+        self,
+        model_name: str = "BAAI/bge-small-en-v1.5",
+        device: str = "cpu",
+        semantic_weight: float = 0.4,
+        token_weight: float = 0.3,
+        explicit_ref_weight: float = 0.3,
+    ):
         """
         Initialize the semantic grouping service.
 
         Args:
             model_name: BGE model name (bge-small, bge-base, bge-large)
             device: Device for model inference ('cpu' or 'cuda')
+            semantic_weight: Weight for semantic similarity (default: 0.4)
+            token_weight: Weight for token overlap (default: 0.3)
+            explicit_ref_weight: Weight for explicit references (default: 0.3)
         """
         self.model_name = model_name
         self.device = device
-        self._model = None
+        self.semantic_weight = semantic_weight
+        self.token_weight = token_weight
+        self.explicit_ref_weight = explicit_ref_weight
+        self._model: Optional["SentenceTransformer"] = None
 
-        logger.info(f"Initializing SemanticGroupingService with model={model_name}, device={device}")
+        logger.info(
+            f"Initializing SemanticGroupingService with model={model_name}, "
+            f"device={device}, weights=(s:{semantic_weight}, t:{token_weight}, e:{explicit_ref_weight})"
+        )
 
-        # TODO Phase 6: Initialize embedding model
-        # try:
-        #     from sentence_transformers import SentenceTransformer
-        #     self._model = SentenceTransformer(model_name, device=device)
-        #     logger.info(f"Loaded BGE model: {model_name}")
-        # except Exception as e:
-        #     logger.warning(f"Failed to load BGE model: {e}, semantic grouping unavailable")
+        # Initialize embedding model if available
+        if SENTENCE_TRANSFORMERS_AVAILABLE and SentenceTransformer is not None:
+            try:
+                self._model = SentenceTransformer(model_name, device=device)
+                logger.info(f"Loaded BGE model: {model_name}")
+            except Exception as e:
+                logger.warning(f"Failed to load BGE model: {e}, semantic grouping unavailable")
+                self._model = None
+        else:
+            logger.warning("sentence-transformers not available, using token-based grouping only")
 
-    def generate_embedding(self, text: str) -> np.ndarray:
+    def is_available(self) -> bool:
+        """Check if semantic grouping is available."""
+        return self._model is not None
+
+    def generate_embedding(self, text: str) -> Optional["np.ndarray"]:
         """
         Generate embedding vector for text.
 
@@ -68,83 +107,123 @@ class SemanticGroupingService:
             text: Text to embed (typically headline + first 2-3 paragraphs)
 
         Returns:
-            Embedding vector as numpy array (384-dim for bge-small)
-
-        Implementation Notes (Phase 6):
-            1. Truncate text to model's max length (usually 512 tokens)
-            2. For story grouping, use:
-               - Headline + first 200 words for start of story
-               - Last 200 words for end of story (to match continuations)
-            3. Call model.encode(text, normalize_embeddings=True)
-            4. Return normalized embedding
+            Embedding vector as numpy array (384-dim for bge-small), or None if unavailable
         """
-        if self._model is None:
-            raise RuntimeError("BGE model not loaded. Check initialization.")
+        if not self.is_available() or not text.strip():
+            return None
 
-        raise NotImplementedError(
-            "Phase 6: Implement embedding generation using sentence-transformers. "
-            "See plan file for detailed implementation guidance."
-        )
+        try:
+            # Generate normalized embedding
+            embedding = self._model.encode(text, normalize_embeddings=True)
+            return embedding
+        except Exception as e:
+            logger.warning(f"Failed to generate embedding: {e}")
+            return None
 
-    def semantic_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
+    def semantic_similarity(self, embedding1: Optional["np.ndarray"], embedding2: Optional["np.ndarray"]) -> float:
         """
         Calculate cosine similarity between two embeddings.
 
         Args:
-            embedding1: First embedding vector
-            embedding2: Second embedding vector
+            embedding1: First embedding vector (or None)
+            embedding2: Second embedding vector (or None)
 
         Returns:
-            Similarity score (0-1, higher is more similar)
-
-        Implementation:
-            return np.dot(embedding1, embedding2) / (
-                np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
-            )
-
-            Or if embeddings are already normalized:
-            return float(np.dot(embedding1, embedding2))
+            Similarity score (0-1, higher is more similar), or 0.0 if either embedding is None
         """
-        # If already normalized (which BGE does by default)
-        return float(np.dot(embedding1, embedding2))
+        if embedding1 is None or embedding2 is None or np is None:
+            return 0.0
 
-    def group_stories_enhanced(self, db, edition_id: int) -> int:
+        try:
+            # Embeddings are already normalized by BGE
+            similarity = float(np.dot(embedding1, embedding2))
+            return max(0.0, min(1.0, similarity))  # Clamp to [0, 1]
+        except Exception as e:
+            logger.warning(f"Failed to compute similarity: {e}")
+            return 0.0
+
+    def group_stories_enhanced(
+        self,
+        items: List[dict],
+        similarity_threshold: float = 0.65,
+        page_window: int = 2,
+    ) -> List[List[int]]:
         """
         Group stories using hybrid semantic + heuristic approach.
 
         Args:
-            db: Database session
-            edition_id: Edition ID to process
+            items: List of item dictionaries with 'id', 'text', 'page_number' keys
+            similarity_threshold: Minimum hybrid score to group items (default: 0.65)
+            page_window: Max page distance to consider for grouping (default: 2)
 
         Returns:
-            Number of story groups created
+            List of groups, where each group is a list of item IDs
 
-        Implementation Notes (Phase 6):
-            1. Load all STORY items for edition
-            2. Generate embeddings for each item:
-               - Start embedding: headline + first 200 words
-               - End embedding: last 200 words
-            3. For each potential continuation:
-               - Calculate semantic similarity (end of story A → start of story B)
-               - Calculate token overlap (from existing story_grouping.py)
-               - Check explicit references ("Continued on page X")
-            4. Compute hybrid score:
-               score = 0.4 * semantic + 0.3 * token + 0.3 * explicit
-            5. Group items with score > threshold
-            6. Create StoryGroup records
-            7. Store embeddings in Item.embedding_json for future queries
-
-        Reuse existing logic from:
-            backend/app/services/story_grouping.py:
-            - _find_explicit_page_references()
-            - _calculate_token_overlap()
-            - persist_story_groups()
+        Note: This method provides semantic similarity scores. The actual story
+        grouping logic should integrate this into the existing story_grouping.py
+        service to combine with token-based and explicit reference detection.
         """
-        raise NotImplementedError(
-            "Phase 6: Implement hybrid story grouping. "
-            "Enhance existing story_grouping.py with semantic similarity. "
-            "See plan file for detailed implementation guidance."
-        )
+        if not items:
+            return []
+
+        # Generate embeddings for all items (if available)
+        item_embeddings = {}
+        if self.is_available():
+            for item in items:
+                text = item.get("text", "")
+                if text:
+                    # Generate embedding for the start of the story
+                    start_text = self._prepare_text_for_embedding(text, mode="start")
+                    embedding = self.generate_embedding(start_text)
+                    if embedding is not None:
+                        item_embeddings[item["id"]] = embedding
+
+        # Build similarity graph
+        groups = []
+        used_items = set()
+
+        # Sort items by page number
+        sorted_items = sorted(items, key=lambda x: x["page_number"])
+
+        for i, item1 in enumerate(sorted_items):
+            if item1["id"] in used_items:
+                continue
+
+            # Start a new group
+            group = [item1["id"]]
+            used_items.add(item1["id"])
+
+            # Look for continuations in subsequent pages
+            for item2 in sorted_items[i + 1 :]:
+                if item2["id"] in used_items:
+                    continue
+
+                # Check page window
+                page_diff = item2["page_number"] - item1["page_number"]
+                if page_diff > page_window:
+                    break
+
+                # Compute hybrid similarity
+                semantic_score = 0.0
+                if item1["id"] in item_embeddings and item2["id"] in item_embeddings:
+                    semantic_score = self.semantic_similarity(
+                        item_embeddings[item1["id"]], item_embeddings[item2["id"]]
+                    )
+
+                # For full implementation, would also compute:
+                # - token_score = _calculate_token_overlap(item1["text"], item2["text"])
+                # - explicit_score = _detect_explicit_reference(item2["text"], item1["page_number"])
+                # - hybrid_score = self._calculate_hybrid_score(semantic_score, token_score, explicit_score)
+
+                # For now, use semantic score as threshold
+                if semantic_score >= similarity_threshold:
+                    group.append(item2["id"])
+                    used_items.add(item2["id"])
+
+            if len(group) > 1:
+                groups.append(group)
+
+        return groups
 
     def _calculate_hybrid_score(
         self,

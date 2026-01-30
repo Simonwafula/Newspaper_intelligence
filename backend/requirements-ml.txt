@@ -22,9 +22,9 @@ pillow>=9.0.0
 paddleocr>=2.7.0
 paddlepaddle>=2.5.0  # CPU version of PaddlePaddle
 
-# ========== PHASE 6: SEMANTIC GROUPING (Future) ==========
-# Uncomment when ready to implement BGE embeddings:
-# sentence-transformers>=2.3.0
+# ========== PHASE 6: SEMANTIC GROUPING ==========
+# BGE embeddings for semantic story grouping
+sentence-transformers>=2.3.0
 
 # ========== OPTIONAL: PERFORMANCE OPTIMIZATION ==========
 # Uncomment for faster inference:
