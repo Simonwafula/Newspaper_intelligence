@@ -173,7 +173,7 @@ class LayoutDetectionService:
         logger.info("Using heuristic layout detection")
         return LayoutResult(blocks=[], method="heuristic")
 
-    def _detect_ml(self, image: np.ndarray, page_width: float, page_height: float) -> List[DetectedBlock]:
+    def _detect_ml(self, image: "np.ndarray", page_width: float, page_height: float) -> List[DetectedBlock]:
         """
         Perform ML-based layout detection using LayoutParser.
 
