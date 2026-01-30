@@ -96,8 +96,7 @@ class BlockOCRService:
                 self._paddle = PaddleOCR(
                     use_angle_cls=True,
                     lang=lang,
-                    use_gpu=use_gpu,
-                    show_log=False
+                    use_gpu=use_gpu
                 )
                 logger.info("PaddleOCR initialized successfully")
             except Exception as e:
