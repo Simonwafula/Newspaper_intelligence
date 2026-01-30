@@ -215,6 +215,41 @@ def _extract_page_refs(text: str | None) -> list[int]:
     return pages
 
 
+def _has_explicit_continuation(items: list[Item]) -> bool:
+    """
+    Check if any item in the group has an explicit continuation reference.
+
+    An explicit continuation is when:
+    - Text contains "continued on page X" or similar
+    - The referenced page is in the group's pages
+
+    Args:
+        items: List of Item objects in the group
+
+    Returns:
+        True if explicit continuation found, False otherwise
+    """
+    if not items:
+        return False
+
+    # Get all page numbers in this group
+    group_pages = {item.page_number for item in items if item.page_number is not None}
+
+    for item in items:
+        text = (item.text or "") + "\n" + (item.title or "")
+        page_refs = _extract_page_refs(text)
+
+        # Check if any referenced page is in the group
+        for ref_page in page_refs:
+            if ref_page in group_pages:
+                logger.debug(
+                    f"Explicit continuation found: item {item.id} references page {ref_page}"
+                )
+                return True
+
+    return False
+
+
 def _named_entity_overlap(a: Item, b: Item) -> float | None:
     a_text = f"{a.title or ''} {a.text or ''}"
     b_text = f"{b.title or ''} {b.text or ''}"
@@ -238,8 +273,20 @@ def build_story_groups(
 
     Returns:
         List of StoryGroupCluster objects
+
+    Safeguards (Intelligence upgrade):
+        - Only groups STORY items by default (configurable via grouping_allow_classified)
+        - Never creates groups > grouping_max_pages_story (unless explicit continuation)
+        - Explicit "continued on page X" + matching headline allows larger groups
     """
-    story_items = [item for item in items if item.item_type == "STORY"]
+    # Filter by item type based on settings
+    if settings.grouping_allow_classified:
+        # Include both STORY and CLASSIFIED items
+        story_items = [item for item in items if item.item_type in ["STORY", "CLASSIFIED"]]
+    else:
+        # Only STORY items (default)
+        story_items = [item for item in items if item.item_type == "STORY"]
+
     if not story_items:
         return []
 
@@ -305,6 +352,26 @@ def build_story_groups(
         group_items.sort(key=lambda item: (item.page_number or 0, item.id))
         pages = sorted({item.page_number for item in group_items if item.page_number is not None})
         item_ids = [item.id for item in group_items]
+
+        # Safeguard: Check if group exceeds max pages (Intelligence upgrade)
+        max_pages = settings.grouping_max_pages_story
+        if len(pages) > max_pages:
+            # Check if this is an explicit continuation (allowed to exceed max)
+            has_explicit_continuation = _has_explicit_continuation(group_items)
+
+            if not has_explicit_continuation:
+                logger.warning(
+                    f"Grouping rejected: {len(pages)} pages exceeds max {max_pages} "
+                    f"without explicit continuation. Group item_ids: {item_ids[:10]}..."
+                )
+                # Skip this group (items will remain ungrouped)
+                continue
+            else:
+                logger.info(
+                    f"Grouping allowed: {len(pages)} pages with explicit continuation. "
+                    f"Group item_ids: {item_ids[:10]}..."
+                )
+
         title = group_items[0].title or (group_items[0].text or "").split("\n")[0] or None
         story_groups.append(
             StoryGroupCluster(
