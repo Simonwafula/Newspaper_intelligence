@@ -13,26 +13,32 @@ Detects layout blocks such as:
 - SECTION_LABEL (section headers like "NATIONAL", "SPORTS")
 """
 
+from __future__ import annotations
+
 import io
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    import numpy as np
+    from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 # Try to import ML dependencies
+LAYOUTPARSER_AVAILABLE = False
+np = None
+lp = None
+PILImage = None
+
 try:
     import numpy as np
     import layoutparser as lp
-    from PIL import Image
+    from PIL import Image as PILImage
     LAYOUTPARSER_AVAILABLE = True
 except ImportError as e:
-    LAYOUTPARSER_AVAILABLE = False
     logger.warning(f"ML dependencies not available: {e}. Install with: pip install -r requirements-ml.txt")
-    # Provide dummy types for when ML not available
-    np = None  # type: ignore
-    lp = None  # type: ignore
-    Image = None  # type: ignore
 
 
 @dataclass
@@ -136,8 +142,12 @@ class LayoutDetectionService:
             LayoutResult with detected blocks and metadata
         """
         # Convert image bytes to PIL Image and numpy array
+        if not LAYOUTPARSER_AVAILABLE or PILImage is None or np is None:
+            logger.warning("ML dependencies not available, cannot perform layout detection")
+            return LayoutResult(blocks=[], method="fallback")
+
         try:
-            pil_image = Image.open(io.BytesIO(image_bytes))
+            pil_image = PILImage.open(io.BytesIO(image_bytes))
             if pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             image_array = np.array(pil_image)
