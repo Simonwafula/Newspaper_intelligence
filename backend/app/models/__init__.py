@@ -51,211 +51,10 @@ class User(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_login = Column(DateTime(timezone=True), nullable=True)
-
-    # Relationships
-    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
-    collections = relationship("Collection", back_populates="user", cascade="all, delete-orphan")
-    api_keys = relationship("UserAPIKey", back_populates="user", cascade="all, delete-orphan")
-
-    def is_admin(self) -> bool:
-        """Check if user has admin role."""
-        return str(self.role) == UserRole.ADMIN.value
-
-
-class Edition(Base):
-    __tablename__ = "editions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    newspaper_name = Column(String(200), nullable=False, index=True)
-    edition_date = Column(DateTime, nullable=False, index=True)
-    file_hash = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256
-    file_path = Column(String(500), nullable=False)
-    pdf_local_path = Column(String(500), nullable=True)
-    storage_backend = Column(String(20), nullable=False, default="local", index=True)
-    storage_key = Column(String(500), nullable=True)
-    num_pages = Column(Integer, nullable=False, default=0)
-    total_pages = Column(Integer, nullable=False, default=0)
-    pages_processed = Column(Integer, nullable=False, default=0)
-    processed_pages = Column(Integer, nullable=False, default=0)  # Progress tracking
-    current_stage = Column(String(20), nullable=False, default="QUEUED", index=True)
-
-    # Processing status
-    status = Column(String(20), nullable=False, default="UPLOADED", index=True)  # UPLOADED, PROCESSING, READY, FAILED, ARCHIVED
-    last_error = Column(Text, nullable=True)
-    archive_status = Column(String(20), nullable=False, default="SCHEDULED", index=True)
-    archived_at = Column(DateTime(timezone=True), nullable=True)
-    cover_image_path = Column(String(500), nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    processed_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Relationships
-    pages = relationship("Page", back_populates="edition", cascade="all, delete-orphan")
-    items = relationship("Item", back_populates="edition", cascade="all, delete-orphan")
-    extraction_runs = relationship("ExtractionRun", back_populates="edition", cascade="all, delete-orphan")
-    story_groups = relationship("StoryGroup", back_populates="edition", cascade="all, delete-orphan")
-
-
-class Page(Base):
-    __tablename__ = "pages"
-
-    id = Column(Integer, primary_key=True, index=True)
-    edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False)
-    page_number = Column(Integer, nullable=False)
-    status = Column(String(20), nullable=False, default="PENDING", index=True)
-    char_count = Column(Integer, nullable=False, default=0)
-    ocr_used = Column(Boolean, nullable=False, default=False)
-    error_message = Column(Text, nullable=True)
-
-    # Files and content
-    image_path = Column(String(500), nullable=True)  # OCR image if needed
-    extracted_text = Column(Text, nullable=True)
-
-    # Layout information
-    bbox_json = Column(JSON, nullable=True)  # Bounding boxes for text blocks
-
-    # Advanced layout detection (Phase 1)
-    high_res_image_path = Column(String(500), nullable=True)  # High-DPI page image
-    render_dpi = Column(Integer, nullable=True)  # DPI used for rendering
-    render_width_px = Column(Integer, nullable=True)  # Width in pixels
-    layout_model_used = Column(String(50), nullable=True)  # Model name/version
-    layout_confidence = Column(Float, nullable=True)  # Average layout detection confidence
-    layout_method = Column(String(20), nullable=True)  # 'ml' or 'heuristic'
-    ocr_words_json = Column(JSON, nullable=True)  # Word-level OCR data with coordinates
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    edition = relationship("Edition", back_populates="pages")
-    items = relationship("Item", back_populates="page")
-
-
-class Item(Base):
-    __tablename__ = "items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False)
-    page_id = Column(Integer, ForeignKey("pages.id"), nullable=True)
-    page_number = Column(Integer, nullable=False, index=True)
-
-    # Item classification
-    item_type = Column(String(20), nullable=False, index=True)  # STORY, AD, CLASSIFIED
-    subtype = Column(String(20), nullable=True, index=True)  # TENDER, JOB, AUCTION, NOTICE, PROPERTY, OTHER
-
-    # Content
-    title = Column(Text, nullable=True)
-    text = Column(Text, nullable=True)
-
-    # Layout information
-    bbox_json = Column(JSON, nullable=True)
-    blocks_json = Column(JSON, nullable=True)  # Block-level text blocks with type, bbox, reading_order
-    embedding_json = Column(JSON, nullable=True)  # Text embeddings for semantic search
-
-    # Extracted entities
-    extracted_entities_json = Column(JSON, nullable=True)
-
-    # Structured classifieds fields
-    contact_info_json = Column(JSON, nullable=True)  # Phone, email, address
-    price_info_json = Column(JSON, nullable=True)     # Price, currency, negotiable
-    date_info_json = Column(JSON, nullable=True)      # Event dates, deadlines
-    location_info_json = Column(JSON, nullable=True)   # Locations, addresses
-    classification_details_json = Column(JSON, nullable=True)  # Additional structured data
-    structured_data = Column(JSON, nullable=True)       # Enhanced structured data for jobs/tenders
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    edition = relationship("Edition", back_populates="items")
-    page = relationship("Page", back_populates="items")
-    categories = relationship("ItemCategory", back_populates="item", cascade="all, delete-orphan")
-    story_group_items = relationship("StoryGroupItem", back_populates="item", cascade="all, delete-orphan")
-    favorited_by = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
-    collection_items = relationship("CollectionItem", back_populates="item", cascade="all, delete-orphan")
-
-
-class StoryGroup(Base):
-    __tablename__ = "story_groups"
-
-    id = Column(Integer, primary_key=True, index=True)
-    edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False, index=True)
-    title = Column(Text, nullable=True)
-    pages_json = Column(JSON, nullable=False, default=list)
-    excerpt = Column(Text, nullable=True)
-    full_text = Column(Text, nullable=True)
-
-    # Semantic grouping enhancements
-    embedding_json = Column(JSON, nullable=True)  # Story embeddings for semantic matching
-    grouping_method = Column(String(20), nullable=True)  # 'semantic' or 'heuristic'
-    similarity_score = Column(Float, nullable=True)  # Semantic similarity score
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    edition = relationship("Edition", back_populates="story_groups")
-    items = relationship("StoryGroupItem", back_populates="story_group", cascade="all, delete-orphan")
-
-
-class StoryGroupItem(Base):
-    __tablename__ = "story_group_items"
-
-    id = Column(Integer, primary_key=True, index=True)
-    story_group_id = Column(Integer, ForeignKey("story_groups.id"), nullable=False, index=True)
-    item_id = Column(Integer, ForeignKey("items.id"), nullable=False, index=True)
-    order_index = Column(Integer, nullable=False, default=0)
-
-    story_group = relationship("StoryGroup", back_populates="items")
-    item = relationship("Item", back_populates="story_group_items")
-
-
-class ExtractionRun(Base):
-    __tablename__ = "extraction_runs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    edition_id = Column(Integer, ForeignKey("editions.id"), nullable=False)
-
-    # Run metadata
-    version = Column(String(20), nullable=False, default="1.0")
-    success = Column(Boolean, nullable=False, default=False)
-    status = Column(String(20), nullable=False, default="RUNNING", index=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    error_message = Column(Text, nullable=True)
-
-    # Timing
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    finished_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Logs and output
-    log_path = Column(String(500), nullable=True)
-    stats_json = Column(JSON, nullable=True)  # Items extracted, pages processed, etc.
-
-    # Relationships
-    edition = relationship("Edition", back_populates="extraction_runs")
-
-
-class SavedSearch(Base):
-    __tablename__ = "saved_searches"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
-
-    # Search parameters
-    query = Column(Text, nullable=False)  # Search query text
-    item_types = Column(JSON, nullable=True)  # Array of item types to filter
-    date_from = Column(DateTime, nullable=True)  # Date range filter
-    date_to = Column(DateTime, nullable=True)
-
-    # Matching and notification
-    match_count = Column(Integer, nullable=False, default=0)  # Current match count
-    last_run = Column(DateTime(timezone=True), nullable=True)  # When matches were last calculated
-    is_active = Column(Boolean, nullable=False, default=True, index=True)
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    alert_events = relationship("AlertEvent", cascade="all, delete-orphan")
 
 
 class AccessRequest(Base):
@@ -511,3 +310,149 @@ class WebhookDelivery(Base):
 
     # Relationships
     webhook = relationship("Webhook", back_populates="deliveries")
+
+
+# ==================== Intelligence Upgrade Models ====================
+
+class Entity(Base):
+    """Normalized entity storage for named entity recognition."""
+    __tablename__ = "entities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name_normalized = Column(String(255), nullable=False, index=True)
+    display_name = Column(String(255), nullable=False)
+    entity_type = Column(String(20), nullable=False, index=True)  # PERSON, ORG, GPE, MONEY, DATE
+    metadata_json = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    item_mentions = relationship("ItemEntity", back_populates="entity", cascade="all, delete-orphan")
+
+
+class ItemEntity(Base):
+    """Junction table linking items to entities with mention details."""
+    __tablename__ = "item_entities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    entity_id = Column(Integer, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True)
+    confidence = Column(Float, nullable=False)
+    mention_count = Column(Integer, nullable=False, default=1)
+    context_json = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    item = relationship("Item")
+    entity = relationship("Entity", back_populates="item_mentions")
+
+
+class TopicCluster(Base):
+    """Topic clusters from semantic clustering of stories."""
+    __tablename__ = "topic_clusters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    centroid_vector = Column(JSON, nullable=True)  # Cluster centroid embedding
+    cluster_size = Column(Integer, nullable=False, default=0)
+    window_start = Column(DateTime(timezone=True), nullable=True)
+    window_end = Column(DateTime(timezone=True), nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    items = relationship("ItemTopic", back_populates="topic_cluster", cascade="all, delete-orphan")
+    threads = relationship("Thread", back_populates="topic_cluster")
+
+
+class ItemTopic(Base):
+    """Junction table linking items to topic clusters."""
+    __tablename__ = "item_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    topic_cluster_id = Column(Integer, ForeignKey("topic_clusters.id", ondelete="CASCADE"), nullable=False, index=True)
+    confidence = Column(Float, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    item = relationship("Item")
+    topic_cluster = relationship("TopicCluster", back_populates="items")
+
+
+class TrendMetric(Base):
+    """Trend metrics for tracking topics and entities over time."""
+    __tablename__ = "trend_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    metric_date = Column(DateTime, nullable=False, index=True)
+    metric_name = Column(String(50), nullable=False, index=True)  # e.g., 'rising_topics', 'new_entities'
+    key = Column(String(255), nullable=False, index=True)  # e.g., topic_id, entity_id
+    value = Column(Float, nullable=False)
+    previous_value = Column(Float, nullable=True)
+    change_percent = Column(Float, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Thread(Base):
+    """Thread for connecting related stories across editions."""
+    __tablename__ = "threads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500), nullable=False)
+    summary = Column(Text, nullable=True)
+    key_entities_json = Column(JSON, nullable=True)  # Top entities in this thread
+    topic_cluster_id = Column(Integer, ForeignKey("topic_clusters.id"), nullable=True)
+    item_count = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    topic_cluster = relationship("TopicCluster", back_populates="threads")
+    items = relationship("ThreadItem", back_populates="thread", cascade="all, delete-orphan")
+
+
+class ThreadItem(Base):
+    """Junction table linking threads to items with ordering."""
+    __tablename__ = "thread_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    thread_id = Column(Integer, ForeignKey("threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_index = Column(Integer, nullable=False, default=0)
+    score = Column(Float, nullable=True)  # Relevance score for this item in thread
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    thread = relationship("Thread", back_populates="items")
+    item = relationship("Item")
+
+
+class AlertEvent(Base):
+    """Alert events for triggered alert rules."""
+    __tablename__ = "alert_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rule_id = Column(Integer, ForeignKey("saved_searches.id"), nullable=False, index=True)
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False, index=True)
+    triggered_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    payload_json = Column(JSON, nullable=True)  # Alert details
+    delivered = Column(Boolean, nullable=False, default=False)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)

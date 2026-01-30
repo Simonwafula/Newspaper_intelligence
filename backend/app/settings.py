@@ -84,6 +84,59 @@ class Settings(BaseSettings):
     token_weight: float = 0.3  # Weight for token overlap
     explicit_ref_weight: float = 0.3  # Weight for explicit page references
 
+    # ==================== INTELLIGENCE UPGRADE FLAGS ====================
+
+    # Layout QA and fallback
+    layout_qa_enabled: bool = False  # Enable layout quality assessment
+    layout_fallback_enabled: bool = True  # Enable automatic fallback to heuristic
+    layout_confidence_min: float = 0.4  # Min confidence to accept ML layout
+    layout_coverage_min: float = 0.1  # Min page coverage ratio to accept layout
+
+    # Ad detection
+    ad_detection_enabled: bool = True  # Enable multi-signal ad detection
+    ad_candidate_threshold: float = 0.6  # Min score to classify as AD
+    ad_cta_keywords: list[str] = ["Call", "WhatsApp", "Visit", "Offer", "Discount", "Terms", "Promo", "Limited", "Sale", "Buy", "Order", "Book"]
+    ad_price_patterns: list[str] = ["KSh", "KES", "/=", "%", "Sh"]
+
+    # Grouping safeguards
+    grouping_max_pages_story: int = 5  # Max pages for a STORY group (unless continued)
+    grouping_allow_classified: bool = False  # Allow grouping CLASSIFIED items
+
+    # Salience and dive mode
+    salience_enabled: bool = True  # Enable salience scoring
+    salience_lede_sentences: int = 2  # Number of sentences for lede_text
+    salience_front_page_boost: float = 0.2  # Boost for page 1 stories
+
+    # Entity extraction
+    entity_extraction_enabled: bool = False  # Enable named entity recognition
+    entity_model_name: str = "stanfordnlp/stanza/en"  # NER model
+    entity_confidence_threshold: float = 0.7  # Min confidence for entity
+
+    # Topic clustering and trends
+    topic_clustering_enabled: bool = False  # Enable topic clustering
+    topic_clustering_days: int = 7  # Days window for clustering
+    topic_clustering_min_cluster_size: int = 3  # Min items per cluster
+    topic_model_clustering: str = "hdbscan"  # hdbscan or kmeans
+    topic_trends_enabled: bool = False  # Enable trend computation
+    topic_trends_days: int = 30  # Days for trend analysis
+
+    # Threading across editions
+    threading_enabled: bool = False  # Enable cross-edition threading
+    threading_similarity_threshold: float = 0.7  # Min similarity for threading
+    threading_max_days_apart: int = 7  # Max days between threaded stories
+
+    # Alerts v2
+    alerts_enabled: bool = False  # Enable alert engine
+    alerts_webhook_enabled: bool = False  # Send webhook notifications for alerts
+
+    # Hybrid search
+    search_hybrid_enabled: bool = False  # Enable FTS + vector hybrid search
+    search_fts_weight: float = 0.5  # Weight for FTS ranking
+    search_vector_weight: float = 0.5  # Weight for vector similarity
+
+    # Quality report
+    quality_report_enabled: bool = True  # Enable quality report endpoint
+
     # Google Drive archiving
     gdrive_enabled: bool = False
     gdrive_folder_id: str | None = None
