@@ -1,13 +1,18 @@
+import logging
 import math
 import re
 from collections import Counter
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.models import Item, StoryGroup, StoryGroupItem
+from app.services.semantic_grouping_service import SemanticGroupingService
 from app.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 CONTINUED_ON_RE = re.compile(r"continued\s+on\s+page\s+(\d+)", re.IGNORECASE)
@@ -97,17 +102,82 @@ def _cosine_similarity(a: Counter, b: Counter) -> float:
     return numerator / denom
 
 
-def _similarity_score(a: Item, b: Item) -> float:
+def _similarity_score(
+    a: Item,
+    b: Item,
+    semantic_service: Optional[SemanticGroupingService] = None,
+    embeddings_cache: Optional[dict] = None,
+) -> float:
+    """
+    Compute hybrid similarity score between two items.
+
+    If semantic_service is provided and enabled, uses hybrid scoring:
+    - 40% semantic similarity (BGE embeddings)
+    - 30% token overlap (cosine)
+    - 30% explicit references
+
+    Otherwise falls back to token-based scoring only.
+    """
     a_text = _normalize_text((a.title or "") + " " + (a.text or "")[:600])
     b_text = _normalize_text((b.title or "") + " " + (b.text or "")[:600])
     if not a_text or not b_text:
         return 0.0
 
+    # Token-based similarity (existing)
     a_vec = _vectorize(a_text)
     b_vec = _vectorize(b_text)
-    cosine = _cosine_similarity(a_vec, b_vec)
+    token_cosine = _cosine_similarity(a_vec, b_vec)
     title_sim = SequenceMatcher(None, _normalize_text(a.title), _normalize_text(b.title)).ratio()
-    return (cosine * 0.7) + (title_sim * 0.3)
+    token_score = (token_cosine * 0.7) + (title_sim * 0.3)
+
+    # If semantic grouping not available, use token-based only
+    if not semantic_service or not semantic_service.is_available():
+        return token_score
+
+    # Semantic similarity (Phase 6)
+    try:
+        # Get or generate embeddings
+        if embeddings_cache is not None:
+            if a.id not in embeddings_cache:
+                embeddings_cache[a.id] = semantic_service.generate_embedding(a.text or "")
+            if b.id not in embeddings_cache:
+                embeddings_cache[b.id] = semantic_service.generate_embedding(b.text or "")
+
+            a_embedding = embeddings_cache[a.id]
+            b_embedding = embeddings_cache[b.id]
+        else:
+            a_embedding = semantic_service.generate_embedding(a.text or "")
+            b_embedding = semantic_service.generate_embedding(b.text or "")
+
+        semantic_score = semantic_service.semantic_similarity(a_embedding, b_embedding)
+
+        # Check for explicit references
+        a_full_text = (a.text or "") + "\n" + (a.title or "")
+        b_full_text = (b.text or "") + "\n" + (b.title or "")
+        has_explicit_ref = (
+            str(b.page_number) in _extract_page_refs(a_full_text) or
+            str(a.page_number) in _extract_page_refs(b_full_text)
+        )
+        explicit_score = 1.0 if has_explicit_ref else 0.0
+
+        # Hybrid score with configured weights
+        hybrid_score = (
+            semantic_service.semantic_weight * semantic_score +
+            semantic_service.token_weight * token_score +
+            semantic_service.explicit_ref_weight * explicit_score
+        )
+
+        logger.debug(
+            f"Hybrid score for items {a.id}-{b.id}: "
+            f"semantic={semantic_score:.3f}, token={token_score:.3f}, "
+            f"explicit={explicit_score:.1f}, hybrid={hybrid_score:.3f}"
+        )
+
+        return hybrid_score
+
+    except Exception as e:
+        logger.warning(f"Semantic similarity failed: {e}, using token-based score")
+        return token_score
 
 
 def _best_match(target: Item, candidates: list[Item]) -> Item | None:
@@ -155,7 +225,20 @@ def _named_entity_overlap(a: Item, b: Item) -> float | None:
     return len(a_set & b_set) / len(a_set | b_set)
 
 
-def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
+def build_story_groups(
+    items: list[Item],
+    semantic_service: Optional[SemanticGroupingService] = None,
+) -> list[StoryGroupCluster]:
+    """
+    Build story groups using hybrid semantic + heuristic approach.
+
+    Args:
+        items: List of Item objects to group
+        semantic_service: Optional SemanticGroupingService for semantic similarity
+
+    Returns:
+        List of StoryGroupCluster objects
+    """
     story_items = [item for item in items if item.item_type == "STORY"]
     if not story_items:
         return []
@@ -165,6 +248,15 @@ def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
     items_by_page: dict[int, list[Item]] = {}
     for item in story_items:
         items_by_page.setdefault(item.page_number, []).append(item)
+
+    # Pre-generate embeddings if semantic grouping is enabled
+    embeddings_cache = {}
+    if semantic_service and semantic_service.is_available():
+        logger.info(f"Generating embeddings for {len(story_items)} stories...")
+        for item in story_items:
+            if item.text:
+                embeddings_cache[item.id] = semantic_service.generate_embedding(item.text)
+        logger.info(f"Generated {len(embeddings_cache)} embeddings")
 
     for item in story_items:
         text = (item.text or "") + "\n" + (item.title or "")
@@ -194,7 +286,12 @@ def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
                 entity_overlap = _named_entity_overlap(item, candidate)
                 if entity_overlap is not None and entity_overlap < 0.2:
                     continue
-                score = _similarity_score(item, candidate)
+                score = _similarity_score(
+                    item,
+                    candidate,
+                    semantic_service=semantic_service,
+                    embeddings_cache=embeddings_cache,
+                )
                 if score >= similarity_threshold:
                     uf.union(item.id, candidate.id)
 
@@ -225,13 +322,44 @@ def build_story_groups(items: list[Item]) -> list[StoryGroupCluster]:
 
 
 def persist_story_groups(db: Session, edition_id: int) -> int:
+    """
+    Persist story groups for an edition using hybrid semantic + heuristic grouping.
+
+    Args:
+        db: Database session
+        edition_id: Edition ID to process
+
+    Returns:
+        Number of story groups created
+    """
     items = (
         db.query(Item)
         .filter(Item.edition_id == edition_id, Item.item_type == "STORY")
         .order_by(Item.page_number, Item.id)
         .all()
     )
-    groups = build_story_groups(items)
+
+    # Initialize semantic grouping service if enabled
+    semantic_service = None
+    if settings.semantic_grouping_enabled:
+        try:
+            semantic_service = SemanticGroupingService(
+                model_name=settings.semantic_model_name,
+                device=settings.semantic_model_device,
+                semantic_weight=settings.semantic_weight,
+                token_weight=settings.token_weight,
+                explicit_ref_weight=settings.explicit_ref_weight,
+            )
+            if semantic_service.is_available():
+                logger.info("Using semantic grouping with BGE embeddings")
+            else:
+                logger.info("Semantic grouping unavailable, using token-based only")
+                semantic_service = None
+        except Exception as e:
+            logger.warning(f"Failed to initialize semantic grouping: {e}, using token-based")
+            semantic_service = None
+
+    groups = build_story_groups(items, semantic_service=semantic_service)
 
     db.query(StoryGroupItem).filter(
         StoryGroupItem.story_group_id.in_(
@@ -263,4 +391,12 @@ def persist_story_groups(db: Session, edition_id: int) -> int:
         inserted += 1
 
     db.commit()
+
+    # Cleanup semantic service resources
+    if semantic_service:
+        try:
+            semantic_service.cleanup()
+        except Exception as e:
+            logger.warning(f"Failed to cleanup semantic service: {e}")
+
     return inserted
