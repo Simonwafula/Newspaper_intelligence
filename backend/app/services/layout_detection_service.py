@@ -18,18 +18,21 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-import numpy as np
-from PIL import Image
-
 logger = logging.getLogger(__name__)
 
 # Try to import ML dependencies
 try:
+    import numpy as np
     import layoutparser as lp
+    from PIL import Image
     LAYOUTPARSER_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     LAYOUTPARSER_AVAILABLE = False
-    logger.warning("LayoutParser not available. Install with: pip install layoutparser")
+    logger.warning(f"ML dependencies not available: {e}. Install with: pip install -r requirements-ml.txt")
+    # Provide dummy types for when ML not available
+    np = None  # type: ignore
+    lp = None  # type: ignore
+    Image = None  # type: ignore
 
 
 @dataclass
