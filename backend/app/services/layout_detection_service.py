@@ -241,16 +241,41 @@ class LayoutDetectionService:
         if not LAYOUTPARSER_AVAILABLE:
             raise ImportError("LayoutParser not available")
 
-        # Load PubLayNet model for newspaper layout detection
-        # This model is pre-trained on document layouts including newspapers
-        model = lp.Detectron2LayoutModel(
-            'lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config',
-            extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", self.confidence_threshold],
-            label_map={0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"},
-            device=self.device
-        )
+        # Try to use local model first, fallback to lp:// URL
+        import os
+        local_config = "/home/mag.mstatilitechnologies.com/models/publaynet/detectron2_config.yaml"
+        local_model = "/home/mag.mstatilitechnologies.com/models/publaynet/model_final_280758.pkl"
 
-        logger.info("LayoutParser PubLayNet model loaded successfully")
+        if os.path.exists(local_config) and os.path.exists(local_model):
+            logger.info(f"Using local model: {local_model}")
+            # Load model from local files
+            from detectron2.config import get_cfg
+            cfg = get_cfg()
+            cfg.merge_from_file(local_config)
+            cfg.MODEL.WEIGHTS = local_model
+            cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = self.confidence_threshold
+            cfg.MODEL.DEVICE = self.device
+            cfg.MODEL.ROI_HEADS.NUM_CLASSES = 5  # PubLayNet has 5 classes
+
+            model = lp.Detectron2LayoutModel(
+                config_path=local_config,
+                extra_config=["MODEL.WEIGHTS", local_model,
+                             "MODEL.ROI_HEADS.SCORE_THRESH_TEST", self.confidence_threshold,
+                             "MODEL.DEVICE", self.device],
+                label_map={0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"}
+            )
+            logger.info("Local LayoutParser model loaded successfully")
+        else:
+            # Fallback to lp:// URL (may not work due to Dropbox issues)
+            logger.warning(f"Local model not found, trying lp:// URL (may fail)")
+            model = lp.Detectron2LayoutModel(
+                'lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config',
+                extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", self.confidence_threshold],
+                label_map={0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"},
+                device=self.device
+            )
+            logger.info("LayoutParser PubLayNet model loaded successfully")
+
         return model
 
     def cleanup(self):
