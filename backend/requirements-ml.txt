@@ -17,10 +17,10 @@ layoutparser[layoutmodels,effdet]>=0.3.4
 opencv-python>=4.8.0
 pillow>=9.0.0
 
-# ========== PHASE 4: ADVANCED OCR (Future) ==========
-# Uncomment when ready to implement block-level OCR:
-# paddleocr>=2.7.0
-# opencv-contrib-python>=4.8.0
+# ========== PHASE 4: ADVANCED OCR ==========
+# Block-level OCR with word coordinates
+paddleocr>=2.7.0
+paddlepaddle>=2.5.0  # CPU version of PaddlePaddle
 
 # ========== PHASE 6: SEMANTIC GROUPING (Future) ==========
 # Uncomment when ready to implement BGE embeddings:
